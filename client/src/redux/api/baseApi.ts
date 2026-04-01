@@ -6,7 +6,7 @@ export const baseApi = createApi({
   refetchOnFocus:     true,
   refetchOnReconnect: true,
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:4000/api",
+    baseUrl: import.meta.env.VITE_API_URL || "http://localhost:4000/api",
     prepareHeaders: (headers) => {
       const token = getToken();
       if (token) headers.set("authorization", token);
