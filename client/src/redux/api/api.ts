@@ -26,6 +26,9 @@ const api = baseApi.injectEndpoints({
     changePassword: build.mutation({
       query: (body) => ({ url: "/auth/change-password", method: "PUT", body }),
     }),
+    updateProfile: build.mutation({
+      query: (body) => ({ url: "/auth/profile", method: "PUT", body }),
+    }),
 
     // ── Attendance ────────────────────────────────────────────────────────
     amClockIn: build.mutation({
@@ -86,4 +89,5 @@ export const {
   useGetAttendanceStatsQuery,
   useGetDTRSummaryQuery,
   useDeleteAttendanceMutation,
+  useUpdateProfileMutation,
 } = api;

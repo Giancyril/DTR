@@ -91,7 +91,6 @@ function DatePicker({
       {open && (
         <div className="absolute z-50 top-full mt-1.5 left-0 bg-gray-900 border border-white/10 rounded-2xl shadow-2xl shadow-black/60 w-64 overflow-hidden">
           <div className="p-3">
-            {/* Header */}
             <div className="flex items-center justify-between mb-3">
               <button type="button" onClick={prevMonth}
                 className="w-7 h-7 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
@@ -103,21 +102,15 @@ function DatePicker({
                 <FaChevronRight size={9} />
               </button>
             </div>
-
-            {/* Day headers */}
             <div className="grid grid-cols-7 mb-1">
               {DAYS.map(d => (
                 <div key={d} className="text-center text-[9px] font-bold text-gray-500 uppercase py-1">{d}</div>
               ))}
             </div>
-
-            {/* Cells */}
             <div className="grid grid-cols-7 gap-0.5">
               {cells.map((day, i) => (
                 <div key={i}>
-                  {day === null ? (
-                    <div />
-                  ) : (
+                  {day === null ? <div /> : (
                     <button type="button" onClick={() => pick(day)}
                       className={`w-full aspect-square rounded-lg text-xs font-semibold transition-all ${
                         isSelected(day)
@@ -132,8 +125,6 @@ function DatePicker({
                 </div>
               ))}
             </div>
-
-            {/* Footer */}
             <div className="flex justify-between mt-3 pt-2.5 border-t border-white/5">
               <button type="button" onClick={() => { onChange(""); setOpen(false); }}
                 className="text-[11px] text-gray-500 hover:text-gray-300 font-semibold transition-colors">
@@ -246,11 +237,11 @@ export default function DTRPage() {
         </div>
 
         {/* Quick ranges */}
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {(["this-week","last-week","this-month","last-month"] as const).map(r => (
             <button key={r} onClick={() => applyRange(r)}
-              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-white/5 text-gray-400 hover:text-white text-[10px] font-semibold rounded-lg transition-all capitalize whitespace-nowrap flex-1 text-center">
-              {r.replace("-", " ")}
+              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-white/5 text-gray-400 hover:text-white text-[10px] font-semibold rounded-lg transition-all capitalize text-center w-full">
+              {r.replace(/-/g, " ")}
             </button>
           ))}
         </div>
@@ -317,34 +308,31 @@ export default function DTRPage() {
           <>
             {/* Desktop table */}
             <div className="hidden lg:block overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full border-collapse">
                 <thead>
-                  <tr className="border-b border-white/5">
+                  <tr className="border-b border-white/5 bg-gray-800/30">
                     <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest">Date</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-bold text-blue-400/70 uppercase tracking-widest" colSpan={2}>Morning</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-bold text-indigo-400/70 uppercase tracking-widest" colSpan={2}>Afternoon</th>
-                    <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest">Hours</th>
+                    <th className="px-4 py-3 text-center text-[10px] font-bold text-blue-400/70 uppercase tracking-widest border-l border-white/5">AM In</th>
+                    <th className="px-4 py-3 text-center text-[10px] font-bold text-blue-400/70 uppercase tracking-widest">AM Out</th>
+                    <th className="px-4 py-3 text-center text-[10px] font-bold text-indigo-400/70 uppercase tracking-widest border-l border-white/5">PM In</th>
+                    <th className="px-4 py-3 text-center text-[10px] font-bold text-indigo-400/70 uppercase tracking-widest">PM Out</th>
+                    <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-l border-white/5">Hours</th>
                     <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest">Status</th>
                     <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest">Remarks</th>
-                  </tr>
-                  <tr className="border-b border-white/5 bg-gray-800/30">
-                    <th />
-                    <th className="px-4 py-2 text-[9px] font-semibold text-blue-400/50 uppercase tracking-widest">In</th>
-                    <th className="px-4 py-2 text-[9px] font-semibold text-blue-400/50 uppercase tracking-widest">Out</th>
-                    <th className="px-4 py-2 text-[9px] font-semibold text-indigo-400/50 uppercase tracking-widest">In</th>
-                    <th className="px-4 py-2 text-[9px] font-semibold text-indigo-400/50 uppercase tracking-widest">Out</th>
-                    <th colSpan={3} />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
                   {records.map(r => (
                     <tr key={r.id} className="hover:bg-white/[0.02] transition-colors">
                       <td className="px-4 py-3 text-white text-xs font-medium whitespace-nowrap">{fmtDate(r.date)}</td>
-                      <td className="px-4 py-3 text-blue-300/80 text-xs">{fmt(r.amTimeIn)}</td>
-                      <td className="px-4 py-3 text-blue-300/80 text-xs">{fmt(r.amTimeOut)}</td>
-                      <td className="px-4 py-3 text-indigo-300/80 text-xs">{fmt(r.pmTimeIn)}</td>
-                      <td className="px-4 py-3 text-indigo-300/80 text-xs">{fmt(r.pmTimeOut)}</td>
-                      <td className="px-4 py-3 text-gray-300 text-xs font-semibold">
+                      {/* Morning */}
+                      <td className="px-4 py-3 text-center text-blue-300/80 text-xs border-l border-white/[0.04]">{fmt(r.amTimeIn)}</td>
+                      <td className="px-4 py-3 text-center text-blue-300/80 text-xs">{fmt(r.amTimeOut)}</td>
+                      {/* Afternoon */}
+                      <td className="px-4 py-3 text-center text-indigo-300/80 text-xs border-l border-white/[0.04]">{fmt(r.pmTimeIn)}</td>
+                      <td className="px-4 py-3 text-center text-indigo-300/80 text-xs">{fmt(r.pmTimeOut)}</td>
+                      {/* Hours */}
+                      <td className="px-4 py-3 text-gray-300 text-xs font-semibold border-l border-white/[0.04]">
                         {r.hoursWorked ? `${r.hoursWorked}h` : "—"}
                       </td>
                       <td className="px-4 py-3"><StatusBadge status={r.status} /></td>

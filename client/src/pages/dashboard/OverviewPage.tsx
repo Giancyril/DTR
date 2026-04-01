@@ -171,7 +171,7 @@ export default function OverviewPage() {
       <div>
         <h1 className="text-white text-xl font-bold tracking-tight">
           Good {hourNow < 12 ? "morning" : hourNow < 18 ? "afternoon" : "evening"},{" "}
-          {user?.name?.split(" ")[0]} 👋
+          {user?.name?.split(" ")[0]} 
         </h1>
         <p className="text-gray-500 text-xs mt-0.5">
           {now.toLocaleDateString("en-PH", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
