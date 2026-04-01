@@ -17,6 +17,8 @@ export interface User {
   role:       Role;
   department: string | null;
   position:   string | null;
+  workStart:  string | null; // e.g. "08:00"
+  workEnd:    string | null; // e.g. "17:00"
   createdAt:  string;
 }
 

@@ -1,12 +1,157 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useGetDTRSummaryQuery, useGetUsersQuery } from "../../redux/api/api";
 import { useUser, isAdmin } from "../../auth/auth";
-import { FaFileAlt, FaCalendarAlt, FaPrint } from "react-icons/fa";
+import { FaFileAlt, FaCalendarAlt, FaPrint, FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import type { AttendanceRecord, User } from "../../types/types";
 
 const fmt     = (d: string | null | undefined) => d ? new Date(d).toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" }) : "—";
 const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" });
+const toISO   = (d: Date)   => d.toISOString().split("T")[0];
 
+// ── Custom Date Picker ────────────────────────────────────────────────────────
+function DatePicker({
+  value,
+  onChange,
+  placeholder = "Select date",
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+}) {
+  const [open,      setOpen]      = useState(false);
+  const [viewYear,  setViewYear]  = useState(() => value ? new Date(value).getFullYear() : new Date().getFullYear());
+  const [viewMonth, setViewMonth] = useState(() => value ? new Date(value).getMonth()    : new Date().getMonth());
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const DAYS   = ["Su","Mo","Tu","We","Th","Fr","Sa"];
+
+  const firstDay    = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const cells: (number | null)[] = [
+    ...Array(firstDay).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+
+  const selected   = value ? new Date(value + "T00:00:00") : null;
+  const isSelected = (day: number) =>
+    selected &&
+    selected.getFullYear() === viewYear &&
+    selected.getMonth()    === viewMonth &&
+    selected.getDate()     === day;
+
+  const isToday = (day: number) => {
+    const t = new Date();
+    return t.getFullYear() === viewYear && t.getMonth() === viewMonth && t.getDate() === day;
+  };
+
+  const pick = (day: number) => {
+    onChange(toISO(new Date(viewYear, viewMonth, day)));
+    setOpen(false);
+  };
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
+    else setViewMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
+    else setViewMonth(m => m + 1);
+  };
+
+  const display = value
+    ? new Date(value + "T00:00:00").toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })
+    : placeholder;
+
+  return (
+    <div ref={ref} className="relative">
+      <div
+        onClick={() => setOpen(o => !o)}
+        className={`w-full flex items-center gap-2 px-3 py-2.5 bg-gray-800 border border-white/8 rounded-xl cursor-pointer select-none transition-all ring-2 ${open ? "ring-blue-500/30" : "ring-transparent"} ${value ? "text-white" : "text-gray-500"}`}
+      >
+        <FaCalendarAlt size={11} className={value ? "text-blue-400" : "text-gray-600"} />
+        <span className="text-sm font-medium flex-1">{display}</span>
+        {value && (
+          <span role="button" onClick={e => { e.stopPropagation(); onChange(""); }}
+            className="text-gray-600 hover:text-gray-400 transition-colors cursor-pointer">
+            <FaTimes size={9} />
+          </span>
+        )}
+      </div>
+
+      {open && (
+        <div className="absolute z-50 top-full mt-1.5 left-0 bg-gray-900 border border-white/10 rounded-2xl shadow-2xl shadow-black/60 w-64 overflow-hidden">
+          <div className="p-3">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-3">
+              <button type="button" onClick={prevMonth}
+                className="w-7 h-7 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+                <FaChevronLeft size={9} />
+              </button>
+              <span className="text-white text-xs font-bold">{MONTHS[viewMonth]} {viewYear}</span>
+              <button type="button" onClick={nextMonth}
+                className="w-7 h-7 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+                <FaChevronRight size={9} />
+              </button>
+            </div>
+
+            {/* Day headers */}
+            <div className="grid grid-cols-7 mb-1">
+              {DAYS.map(d => (
+                <div key={d} className="text-center text-[9px] font-bold text-gray-500 uppercase py-1">{d}</div>
+              ))}
+            </div>
+
+            {/* Cells */}
+            <div className="grid grid-cols-7 gap-0.5">
+              {cells.map((day, i) => (
+                <div key={i}>
+                  {day === null ? (
+                    <div />
+                  ) : (
+                    <button type="button" onClick={() => pick(day)}
+                      className={`w-full aspect-square rounded-lg text-xs font-semibold transition-all ${
+                        isSelected(day)
+                          ? "bg-blue-600 text-white"
+                          : isToday(day)
+                            ? "bg-blue-500/15 text-blue-400 border border-blue-500/30"
+                            : "text-gray-400 hover:text-white hover:bg-white/5"
+                      }`}>
+                      {day}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-between mt-3 pt-2.5 border-t border-white/5">
+              <button type="button" onClick={() => { onChange(""); setOpen(false); }}
+                className="text-[11px] text-gray-500 hover:text-gray-300 font-semibold transition-colors">
+                Clear
+              </button>
+              <button type="button" onClick={() => { const t = new Date(); setViewYear(t.getFullYear()); setViewMonth(t.getMonth()); pick(t.getDate()); }}
+                className="text-[11px] text-blue-400 hover:text-blue-300 font-semibold transition-colors">
+                Today
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Status Badge ──────────────────────────────────────────────────────────────
 const StatusBadge = ({ status }: { status: string }) => {
   const map: Record<string, string> = {
     PRESENT:  "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
@@ -22,8 +167,6 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 // ── Quick range helpers ───────────────────────────────────────────────────────
-const toISO = (d: Date) => d.toISOString().split("T")[0];
-
 const getRange = (type: "this-week" | "last-week" | "this-month" | "last-month") => {
   const now = new Date();
   if (type === "this-week") {
@@ -103,15 +246,16 @@ export default function DTRPage() {
         </div>
 
         {/* Quick ranges */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2">
           {(["this-week","last-week","this-month","last-month"] as const).map(r => (
             <button key={r} onClick={() => applyRange(r)}
-              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-white/5 text-gray-400 hover:text-white text-[10px] font-semibold rounded-lg transition-all capitalize">
+              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-white/5 text-gray-400 hover:text-white text-[10px] font-semibold rounded-lg transition-all capitalize whitespace-nowrap flex-1 text-center">
               {r.replace("-", " ")}
             </button>
           ))}
         </div>
 
+        {/* Date pickers + employee selector */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {admin && (
             <select value={selectedUserId} onChange={e => setSelectedUserId(e.target.value)}
@@ -122,10 +266,8 @@ export default function DTRPage() {
               ))}
             </select>
           )}
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-            className="px-3 py-2.5 bg-gray-800 border border-white/8 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
-          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-            className="px-3 py-2.5 bg-gray-800 border border-white/8 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+          <DatePicker value={dateFrom} onChange={setDateFrom} placeholder="From date" />
+          <DatePicker value={dateTo}   onChange={setDateTo}   placeholder="To date"   />
         </div>
       </div>
 
@@ -133,12 +275,12 @@ export default function DTRPage() {
       {summary && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
-            { label: "Total Hours",   value: `${summary.totalHours}h`,  color: "text-blue-400"    },
-            { label: "Present Days",  value: summary.presentDays,        color: "text-emerald-400" },
-            { label: "Absent Days",   value: summary.absentDays,         color: "text-red-400"     },
-            { label: "Late Days",     value: summary.lateDays,           color: "text-amber-400"   },
-            { label: "Half Days",     value: summary.halfDays,           color: "text-purple-400"  },
-            { label: "Total Days",    value: summary.totalDays,          color: "text-gray-300"    },
+            { label: "Total Hours",  value: `${summary.totalHours}h`, color: "text-blue-400"    },
+            { label: "Present Days", value: summary.presentDays,       color: "text-emerald-400" },
+            { label: "Absent Days",  value: summary.absentDays,        color: "text-red-400"     },
+            { label: "Late Days",    value: summary.lateDays,          color: "text-amber-400"   },
+            { label: "Half Days",    value: summary.halfDays,          color: "text-purple-400"  },
+            { label: "Total Days",   value: summary.totalDays,         color: "text-gray-300"    },
           ].map(({ label, value, color }) => (
             <div key={label} className="bg-gray-900 border border-white/5 rounded-2xl p-4 text-center">
               <p className={`text-xl font-bold ${color}`}>{value}</p>
@@ -148,16 +290,19 @@ export default function DTRPage() {
         </div>
       )}
 
-      {/* Records table */}
+      {/* Records */}
       <div className="bg-gray-900 border border-white/5 rounded-2xl overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-white/5 flex items-center gap-2">
-          <FaFileAlt size={11} className="text-gray-500" />
-          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Daily Records</h2>
+        <div className="px-5 py-3.5 border-b border-white/5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FaFileAlt size={11} className="text-gray-500" />
+            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Daily Records</h2>
+          </div>
+          <span className="text-[10px] text-gray-600">{records.length} entries</span>
         </div>
 
         {isLoading || isFetching ? (
-          <div className="p-8 space-y-2">
-            {[...Array(5)].map((_, i) => <div key={i} className="h-10 bg-gray-800 rounded-xl animate-pulse" />)}
+          <div className="p-5 space-y-2">
+            {[...Array(5)].map((_, i) => <div key={i} className="h-16 bg-gray-800 rounded-xl animate-pulse" />)}
           </div>
         ) : !userId ? (
           <div className="py-16 text-center">
@@ -169,31 +314,97 @@ export default function DTRPage() {
             <p className="text-gray-500 text-sm">No records for this period</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-white/5">
-                  {["Date","Time In","Time Out","Hours","Status","Remarks"].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04]">
-                {records.map(r => (
-                  <tr key={r.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-4 py-3 text-white text-xs font-medium">{fmtDate(r.date)}</td>
-                    <td className="px-4 py-3 text-gray-300 text-xs">{fmt(r.timeIn)}</td>
-                    <td className="px-4 py-3 text-gray-300 text-xs">{fmt(r.timeOut)}</td>
-                    <td className="px-4 py-3 text-gray-300 text-xs font-semibold">
-                      {r.hoursWorked ? `${r.hoursWorked}h` : "—"}
-                    </td>
-                    <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{r.remarks ?? "—"}</td>
+          <>
+            {/* Desktop table */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-white/5">
+                    <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest">Date</th>
+                    <th className="px-4 py-3 text-center text-[10px] font-bold text-blue-400/70 uppercase tracking-widest" colSpan={2}>Morning</th>
+                    <th className="px-4 py-3 text-center text-[10px] font-bold text-indigo-400/70 uppercase tracking-widest" colSpan={2}>Afternoon</th>
+                    <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest">Hours</th>
+                    <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest">Status</th>
+                    <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest">Remarks</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                  <tr className="border-b border-white/5 bg-gray-800/30">
+                    <th />
+                    <th className="px-4 py-2 text-[9px] font-semibold text-blue-400/50 uppercase tracking-widest">In</th>
+                    <th className="px-4 py-2 text-[9px] font-semibold text-blue-400/50 uppercase tracking-widest">Out</th>
+                    <th className="px-4 py-2 text-[9px] font-semibold text-indigo-400/50 uppercase tracking-widest">In</th>
+                    <th className="px-4 py-2 text-[9px] font-semibold text-indigo-400/50 uppercase tracking-widest">Out</th>
+                    <th colSpan={3} />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {records.map(r => (
+                    <tr key={r.id} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="px-4 py-3 text-white text-xs font-medium whitespace-nowrap">{fmtDate(r.date)}</td>
+                      <td className="px-4 py-3 text-blue-300/80 text-xs">{fmt(r.amTimeIn)}</td>
+                      <td className="px-4 py-3 text-blue-300/80 text-xs">{fmt(r.amTimeOut)}</td>
+                      <td className="px-4 py-3 text-indigo-300/80 text-xs">{fmt(r.pmTimeIn)}</td>
+                      <td className="px-4 py-3 text-indigo-300/80 text-xs">{fmt(r.pmTimeOut)}</td>
+                      <td className="px-4 py-3 text-gray-300 text-xs font-semibold">
+                        {r.hoursWorked ? `${r.hoursWorked}h` : "—"}
+                      </td>
+                      <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">{r.remarks ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="lg:hidden divide-y divide-white/[0.04]">
+              {records.map(r => (
+                <div key={r.id} className="p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-white text-sm font-semibold">{fmtDate(r.date)}</p>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <StatusBadge status={r.status} />
+                      {r.hoursWorked && (
+                        <span className="text-xs font-bold text-white bg-gray-800 border border-white/10 px-2 py-0.5 rounded-lg">
+                          {r.hoursWorked}h
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-blue-500/5 border border-blue-500/10 rounded-xl p-3">
+                      <p className="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-2">Morning</p>
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-[9px] text-gray-500">In</span>
+                          <span className="text-blue-300/80 text-[10px] font-semibold">{fmt(r.amTimeIn)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[9px] text-gray-500">Out</span>
+                          <span className="text-blue-300/80 text-[10px] font-semibold">{fmt(r.amTimeOut)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-3">
+                      <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest mb-2">Afternoon</p>
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-[9px] text-gray-500">In</span>
+                          <span className="text-indigo-300/80 text-[10px] font-semibold">{fmt(r.pmTimeIn)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[9px] text-gray-500">Out</span>
+                          <span className="text-indigo-300/80 text-[10px] font-semibold">{fmt(r.pmTimeOut)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {r.remarks && (
+                    <p className="text-gray-500 text-[10px] italic">{r.remarks}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>

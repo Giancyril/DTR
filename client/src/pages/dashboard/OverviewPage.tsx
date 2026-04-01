@@ -6,11 +6,13 @@ import {
 } from "../../redux/api/api";
 import { useUser, isAdmin } from "../../auth/auth";
 import { toast } from "react-toastify";
-import { FaUsers, FaCheckCircle, FaTimesCircle, FaClock, FaSignInAlt, FaSignOutAlt } from "react-icons/fa";
+import { FaUsers, FaCheckCircle, FaTimesCircle, FaClock, FaSignInAlt, FaSignOutAlt, FaExclamationTriangle, FaFire, FaTrophy } from "react-icons/fa";
 import type { AttendanceRecord } from "../../types/types";
 
 const fmt = (d: string | null | undefined) =>
   d ? new Date(d).toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" }) : "—";
+
+const toISO = (d: Date) => d.toISOString().split("T")[0];
 
 const StatusBadge = ({ status }: { status: string }) => {
   const map: Record<string, string> = {
@@ -26,14 +28,58 @@ const StatusBadge = ({ status }: { status: string }) => {
   );
 };
 
+// ── Streak helpers ────────────────────────────────────────────────────────────
+function computeStreak(records: AttendanceRecord[]) {
+  // Sort descending by date
+  const sorted = [...records].sort((a, b) => b.date.localeCompare(a.date));
+  const today  = toISO(new Date());
+
+  let current = 0;
+  let best    = 0;
+  let temp    = 0;
+
+  // compute best streak from all records (ascending)
+  const asc = [...records].sort((a, b) => a.date.localeCompare(b.date));
+  for (const r of asc) {
+    if (r.status === "PRESENT") { temp++; if (temp > best) best = temp; }
+    else temp = 0;
+  }
+
+  // compute current streak (consecutive present days going back from today)
+  for (const r of sorted) {
+    if (r.status === "PRESENT") current++;
+    else if (r.date < today) break; // gap found
+  }
+
+  return { current, best };
+}
+
+// ── 30-day heatmap dot ────────────────────────────────────────────────────────
+function HeatmapDot({ status }: { status?: string }) {
+  const color =
+    status === "PRESENT"  ? "bg-emerald-500"   :
+    status === "LATE"     ? "bg-amber-500"      :
+    status === "ABSENT"   ? "bg-red-500/70"     :
+    status === "HALF_DAY" ? "bg-purple-500"     :
+    "bg-gray-700";
+  return <div className={`w-3 h-3 rounded-sm ${color} transition-all`} title={status ?? "No record"} />;
+}
+
 export default function OverviewPage() {
   const user  = useUser();
   const admin = isAdmin();
-  const today = new Date().toISOString().split("T")[0];
+  const today = toISO(new Date());
+
+  // Last 30 days for streak + heatmap
+  const thirtyDaysAgo = toISO(new Date(Date.now() - 29 * 24 * 60 * 60 * 1000));
 
   const { data: statsData } = useGetAttendanceStatsQuery(undefined);
   const { data: myData }    = useGetAttendanceQuery(
     { userId: user?.id, dateFrom: today, dateTo: today },
+    { skip: !user?.id }
+  );
+  const { data: historyData } = useGetAttendanceQuery(
+    { userId: user?.id, dateFrom: thirtyDaysAgo, dateTo: today },
     { skip: !user?.id }
   );
 
@@ -42,8 +88,9 @@ export default function OverviewPage() {
   const [pmClockIn,  { isLoading: pmClockingIn   }] = usePmClockInMutation();
   const [pmClockOut, { isLoading: pmClockingOut  }] = usePmClockOutMutation();
 
-  const stats       = statsData?.data;
-  const todayRecord = (myData?.records as AttendanceRecord[])?.[0];
+  const stats         = statsData?.data;
+  const todayRecord   = (myData?.records as AttendanceRecord[])?.[0];
+  const historyRecords = (historyData?.records as AttendanceRecord[]) ?? [];
 
   const handle = async (fn: () => Promise<any>, successMsg: string) => {
     try {
@@ -53,6 +100,64 @@ export default function OverviewPage() {
       toast.error(err?.data?.message ?? "Action failed");
     }
   };
+
+  // ── Notifications ─────────────────────────────────────────────────────────
+  const now        = new Date();
+  const hourNow    = now.getHours();
+  const isPastNoon = hourNow >= 12;
+  const isPastAMOut = hourNow >= 12; // after noon, AM out should be done
+  const isPastPMOut = hourNow >= 17; // after 5PM, PM out should be done
+
+  const notifications: { id: string; msg: string; color: string; border: string; icon: string }[] = [];
+
+  if (todayRecord) {
+    if (todayRecord.amTimeIn && !todayRecord.amTimeOut && isPastAMOut) {
+      notifications.push({
+        id: "am-out",
+        msg: "You forgot to clock out from your Morning session.",
+        color: "text-amber-400",
+        border: "border-amber-500/20",
+        icon: "bg-amber-500/10",
+      });
+    }
+    if (todayRecord.pmTimeIn && !todayRecord.pmTimeOut && isPastPMOut) {
+      notifications.push({
+        id: "pm-out",
+        msg: "You forgot to clock out from your Afternoon session.",
+        color: "text-amber-400",
+        border: "border-amber-500/20",
+        icon: "bg-amber-500/10",
+      });
+    }
+    if (!todayRecord.amTimeIn && isPastNoon) {
+      notifications.push({
+        id: "am-missing",
+        msg: "No Morning session recorded for today.",
+        color: "text-red-400",
+        border: "border-red-500/20",
+        icon: "bg-red-500/10",
+      });
+    }
+  } else if (isPastNoon) {
+    notifications.push({
+      id: "no-record",
+      msg: "No attendance recorded for today. Please clock in or contact your admin.",
+      color: "text-red-400",
+      border: "border-red-500/20",
+      icon: "bg-red-500/10",
+    });
+  }
+
+  // ── Streak & heatmap ──────────────────────────────────────────────────────
+  const { current: currentStreak, best: bestStreak } = computeStreak(historyRecords);
+
+  // Build last 30 days array
+  const last30: { date: string; status?: string }[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = toISO(new Date(Date.now() - i * 24 * 60 * 60 * 1000));
+    const rec = historyRecords.find(r => r.date === d);
+    last30.push({ date: d, status: rec?.status });
+  }
 
   const statCards = admin ? [
     { label: "Total Employees", value: stats?.totalEmployees ?? 0, icon: FaUsers,       color: "text-blue-400",    bg: "bg-blue-500/10",    border: "border-blue-500/20"    },
@@ -65,13 +170,27 @@ export default function OverviewPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-white text-xl font-bold tracking-tight">
-          Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"},{" "}
+          Good {hourNow < 12 ? "morning" : hourNow < 18 ? "afternoon" : "evening"},{" "}
           {user?.name?.split(" ")[0]} 👋
         </h1>
         <p className="text-gray-500 text-xs mt-0.5">
-          {new Date().toLocaleDateString("en-PH", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+          {now.toLocaleDateString("en-PH", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
         </p>
       </div>
+
+      {/* ── Notifications ── */}
+      {!admin && notifications.length > 0 && (
+        <div className="space-y-2">
+          {notifications.map(n => (
+            <div key={n.id} className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${n.border} bg-gray-900`}>
+              <div className={`w-7 h-7 rounded-lg ${n.icon} flex items-center justify-center shrink-0 mt-0.5`}>
+                <FaExclamationTriangle size={11} className={n.color} />
+              </div>
+              <p className={`text-xs font-medium ${n.color}`}>{n.msg}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Admin stats */}
       {admin && (
@@ -88,6 +207,62 @@ export default function OverviewPage() {
         </div>
       )}
 
+      {/* ── Streak & Heatmap (employees only) ── */}
+      {!admin && (
+        <div className="bg-gray-900 border border-white/5 rounded-2xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Attendance Streak</h2>
+            <span className="text-[10px] text-gray-600">Last 30 days</span>
+          </div>
+
+          {/* Streak cards */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-gray-800/50 border border-white/5 rounded-xl p-4 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
+                <FaFire size={14} className="text-orange-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-white">{currentStreak}</p>
+                <p className="text-gray-500 text-[10px]">Current streak</p>
+              </div>
+            </div>
+            <div className="bg-gray-800/50 border border-white/5 rounded-xl p-4 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center shrink-0">
+                <FaTrophy size={14} className="text-yellow-400" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-white">{bestStreak}</p>
+                <p className="text-gray-500 text-[10px]">Best streak</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Heatmap */}
+          <div>
+            <div className="flex flex-wrap gap-1">
+              {last30.map(({ date, status }) => (
+                <HeatmapDot key={date} status={status} />
+              ))}
+            </div>
+            {/* Legend */}
+            <div className="flex items-center gap-3 mt-3 flex-wrap">
+              {[
+                { label: "Present",  color: "bg-emerald-500"  },
+                { label: "Late",     color: "bg-amber-500"    },
+                { label: "Absent",   color: "bg-red-500/70"   },
+                { label: "Half Day", color: "bg-purple-500"   },
+                { label: "No record",color: "bg-gray-700"     },
+              ].map(({ label, color }) => (
+                <div key={label} className="flex items-center gap-1.5">
+                  <div className={`w-2.5 h-2.5 rounded-sm ${color}`} />
+                  <span className="text-[9px] text-gray-500">{label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Today's Attendance */}
       <div className="bg-gray-900 border border-white/5 rounded-2xl p-5 space-y-5">
         <div className="flex items-center justify-between">
@@ -100,7 +275,7 @@ export default function OverviewPage() {
           {/* AM Session */}
           <div className="bg-gray-800/50 border border-white/5 rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-amber-400" />
+              <div className="w-2 h-2 rounded-full bg-blue-400" />
               <p className="text-xs font-bold text-gray-300">Morning Session</p>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -117,13 +292,13 @@ export default function OverviewPage() {
               {!todayRecord?.amTimeIn ? (
                 <button onClick={() => handle(() => amClockIn(undefined).unwrap(), "AM Clock In recorded!")}
                   disabled={amClockinIn}
-                  className="col-span-2 flex items-center justify-center gap-1.5 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 text-[11px] font-bold rounded-lg transition-all disabled:opacity-50">
+                  className="col-span-2 flex items-center justify-center gap-1.5 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 text-[11px] font-bold rounded-lg transition-all disabled:opacity-50">
                   <FaSignInAlt size={10} /> {amClockinIn ? "Recording..." : "AM Clock In"}
                 </button>
               ) : !todayRecord?.amTimeOut ? (
                 <button onClick={() => handle(() => amClockOut(undefined).unwrap(), "AM Clock Out recorded!")}
                   disabled={amClockingOut}
-                  className="col-span-2 flex items-center justify-center gap-1.5 py-2 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 text-orange-400 text-[11px] font-bold rounded-lg transition-all disabled:opacity-50">
+                  className="col-span-2 flex items-center justify-center gap-1.5 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 text-[11px] font-bold rounded-lg transition-all disabled:opacity-50">
                   <FaSignOutAlt size={10} /> {amClockingOut ? "Recording..." : "AM Clock Out"}
                 </button>
               ) : (

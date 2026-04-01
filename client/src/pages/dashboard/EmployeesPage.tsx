@@ -1,17 +1,17 @@
 import { useState } from "react";
 import { useGetUsersQuery, useRegisterMutation, useDeleteUserMutation, useUpdateUserMutation } from "../../redux/api/api";
 import { toast } from "react-toastify";
-import { FaPlus, FaTimes, FaTrash, FaEdit } from "react-icons/fa";
+import { FaPlus, FaTimes, FaTrash, FaEdit, FaClock } from "react-icons/fa";
 import type { User } from "../../types/types";
 
 export default function EmployeesPage() {
-  const [showAdd,  setShowAdd]  = useState(false);
-  const [editing,  setEditing]  = useState<User | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editing, setEditing] = useState<User | null>(null);
 
   const { data, isLoading } = useGetUsersQuery(undefined);
   const [deleteUser] = useDeleteUserMutation();
 
-  const users = (data?.data as User[]) ?? [];
+  const users     = (data?.data as User[]) ?? [];
   const employees = users.filter(u => u.role === "EMPLOYEE");
 
   const handleDelete = async (id: string) => {
@@ -22,6 +22,17 @@ export default function EmployeesPage() {
     } catch (err: any) {
       toast.error(err?.data?.message ?? "Failed to delete");
     }
+  };
+
+  const fmtSchedule = (u: User) => {
+    if (!u.workStart || !u.workEnd) return null;
+    const fmt = (t: string) => {
+      const [h, m] = t.split(":").map(Number);
+      const ampm = h >= 12 ? "PM" : "AM";
+      const h12  = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+    };
+    return `${fmt(u.workStart)} – ${fmt(u.workEnd)}`;
   };
 
   return (
@@ -61,10 +72,17 @@ export default function EmployeesPage() {
                   <p className="text-white text-sm font-semibold truncate">{u.name}</p>
                   <p className="text-gray-500 text-xs truncate">{u.email}</p>
                 </div>
-                <div className="hidden sm:block text-center">
+                <div className="hidden sm:block text-center min-w-0">
                   <p className="text-gray-300 text-xs">{u.department ?? "—"}</p>
                   <p className="text-gray-500 text-[10px]">{u.position ?? "—"}</p>
                 </div>
+                {/* Schedule badge */}
+                {fmtSchedule(u) && (
+                  <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-blue-500/10 border border-blue-500/20 rounded-lg shrink-0">
+                    <FaClock size={9} className="text-blue-400" />
+                    <span className="text-[10px] text-blue-300 font-semibold whitespace-nowrap">{fmtSchedule(u)}</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button onClick={() => setEditing(u)}
                     className="w-8 h-8 rounded-lg bg-gray-800 border border-white/5 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
@@ -81,15 +99,20 @@ export default function EmployeesPage() {
         )}
       </div>
 
-      {showAdd   && <AddEmployeeModal   onClose={() => setShowAdd(false)} />}
-      {editing   && <EditEmployeeModal  user={editing} onClose={() => setEditing(null)} />}
+      {showAdd && <AddEmployeeModal onClose={() => setShowAdd(false)} />}
+      {editing  && <EditEmployeeModal user={editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }
 
+// ── Add Employee Modal ────────────────────────────────────────────────────────
 function AddEmployeeModal({ onClose }: { onClose: () => void }) {
   const [register, { isLoading }] = useRegisterMutation();
-  const [form, setForm] = useState({ name: "", email: "", password: "", department: "", position: "", role: "EMPLOYEE" as const });
+  const [form, setForm] = useState({
+    name: "", email: "", password: "",
+    department: "", position: "", role: "EMPLOYEE" as const,
+    workStart: "08:00", workEnd: "17:00",
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,39 +125,67 @@ function AddEmployeeModal({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const inputCls = "w-full px-4 py-2.5 bg-gray-800 border border-white/8 rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30";
+  const labelCls = "block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5";
+
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+      <div className="bg-gray-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl max-h-[92vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0">
           <h3 className="text-sm font-bold text-white">Add Employee</h3>
           <button onClick={onClose} className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
             <FaTimes size={12} />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-3.5">
+        <form onSubmit={handleSubmit} className="p-5 space-y-3.5 overflow-y-auto">
           {[
-            { label: "Full Name",   key: "name",       type: "text"     },
-            { label: "Email",       key: "email",      type: "email"    },
-            { label: "Password",    key: "password",   type: "password" },
-            { label: "Department",  key: "department", type: "text"     },
-            { label: "Position",    key: "position",   type: "text"     },
+            { label: "Full Name",  key: "name",       type: "text"     },
+            { label: "Email",      key: "email",      type: "email"    },
+            { label: "Password",   key: "password",   type: "password" },
+            { label: "Department", key: "department", type: "text"     },
+            { label: "Position",   key: "position",   type: "text"     },
           ].map(({ label, key, type }) => (
             <div key={key}>
-              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">{label}</label>
+              <label className={labelCls}>{label}</label>
               <input type={type} required={["name","email","password"].includes(key)}
                 value={(form as any)[key]}
                 onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                className="w-full px-4 py-2.5 bg-gray-800 border border-white/8 rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                className={inputCls} />
             </div>
           ))}
+
           <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Role</label>
+            <label className={labelCls}>Role</label>
             <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as any }))}
-              className="w-full px-4 py-2.5 bg-gray-800 border border-white/8 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+              className={inputCls}>
               <option value="EMPLOYEE">Employee</option>
               <option value="ADMIN">Admin</option>
             </select>
           </div>
+
+          {/* Work Schedule */}
+          <div className="bg-blue-500/5 border border-blue-500/15 rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <FaClock size={10} className="text-blue-400" />
+              <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Work Schedule</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Start Time</label>
+                <input type="time" value={form.workStart}
+                  onChange={e => setForm(f => ({ ...f, workStart: e.target.value }))}
+                  className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>End Time</label>
+                <input type="time" value={form.workEnd}
+                  onChange={e => setForm(f => ({ ...f, workEnd: e.target.value }))}
+                  className={inputCls} />
+              </div>
+            </div>
+            <p className="text-[10px] text-gray-500">Used to automatically determine late and absent status.</p>
+          </div>
+
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose}
               className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 border border-white/5 text-gray-400 text-xs font-medium rounded-xl transition-colors">
@@ -151,9 +202,17 @@ function AddEmployeeModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ── Edit Employee Modal ───────────────────────────────────────────────────────
 function EditEmployeeModal({ user, onClose }: { user: User; onClose: () => void }) {
   const [updateUser, { isLoading }] = useUpdateUserMutation();
-  const [form, setForm] = useState({ name: user.name, department: user.department ?? "", position: user.position ?? "", role: user.role });
+  const [form, setForm] = useState({
+    name:       user.name,
+    department: user.department ?? "",
+    position:   user.position   ?? "",
+    role:       user.role,
+    workStart:  user.workStart  ?? "08:00",
+    workEnd:    user.workEnd    ?? "17:00",
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,36 +225,67 @@ function EditEmployeeModal({ user, onClose }: { user: User; onClose: () => void 
     }
   };
 
+  const inputCls = "w-full px-4 py-2.5 bg-gray-800 border border-white/8 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30";
+  const labelCls = "block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5";
+
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
-          <h3 className="text-sm font-bold text-white">Edit Employee</h3>
+      <div className="bg-gray-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl max-h-[92vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0">
+          <div>
+            <h3 className="text-sm font-bold text-white">Edit Employee</h3>
+            <p className="text-gray-500 text-xs mt-0.5">{user.name}</p>
+          </div>
           <button onClick={onClose} className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
             <FaTimes size={12} />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-3.5">
+        <form onSubmit={handleSubmit} className="p-5 space-y-3.5 overflow-y-auto">
           {[
             { label: "Full Name",  key: "name",       type: "text" },
             { label: "Department", key: "department", type: "text" },
             { label: "Position",   key: "position",   type: "text" },
           ].map(({ label, key, type }) => (
             <div key={key}>
-              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">{label}</label>
+              <label className={labelCls}>{label}</label>
               <input type={type} value={(form as any)[key]}
                 onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                className="w-full px-4 py-2.5 bg-gray-800 border border-white/8 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                className={inputCls} />
             </div>
           ))}
+
           <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Role</label>
+            <label className={labelCls}>Role</label>
             <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as any }))}
-              className="w-full px-4 py-2.5 bg-gray-800 border border-white/8 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+              className={inputCls}>
               <option value="EMPLOYEE">Employee</option>
               <option value="ADMIN">Admin</option>
             </select>
           </div>
+
+          {/* Work Schedule */}
+          <div className="bg-blue-500/5 border border-blue-500/15 rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <FaClock size={10} className="text-blue-400" />
+              <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Work Schedule</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Start Time</label>
+                <input type="time" value={form.workStart}
+                  onChange={e => setForm(f => ({ ...f, workStart: e.target.value }))}
+                  className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>End Time</label>
+                <input type="time" value={form.workEnd}
+                  onChange={e => setForm(f => ({ ...f, workEnd: e.target.value }))}
+                  className={inputCls} />
+              </div>
+            </div>
+            <p className="text-[10px] text-gray-500">Used to automatically determine late and absent status.</p>
+          </div>
+
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose}
               className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 border border-white/5 text-gray-400 text-xs font-medium rounded-xl transition-colors">
