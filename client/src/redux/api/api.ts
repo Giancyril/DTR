@@ -28,12 +28,20 @@ const api = baseApi.injectEndpoints({
     }),
 
     // ── Attendance ────────────────────────────────────────────────────────
-    clockIn: build.mutation({
-      query: () => ({ url: "/attendance/clock-in", method: "POST" }),
+    amClockIn: build.mutation({
+      query: () => ({ url: "/attendance/am-clock-in", method: "POST" }),
       invalidatesTags: ["attendance", "stats"],
     }),
-    clockOut: build.mutation({
-      query: () => ({ url: "/attendance/clock-out", method: "POST" }),
+    amClockOut: build.mutation({
+      query: () => ({ url: "/attendance/am-clock-out", method: "POST" }),
+      invalidatesTags: ["attendance", "stats"],
+    }),
+    pmClockIn: build.mutation({
+      query: () => ({ url: "/attendance/pm-clock-in", method: "POST" }),
+      invalidatesTags: ["attendance", "stats"],
+    }),
+    pmClockOut: build.mutation({
+      query: () => ({ url: "/attendance/pm-clock-out", method: "POST" }),
       invalidatesTags: ["attendance", "stats"],
     }),
     manualEntry: build.mutation({
@@ -69,8 +77,10 @@ export const {
   useUpdateUserMutation,
   useDeleteUserMutation,
   useChangePasswordMutation,
-  useClockInMutation,
-  useClockOutMutation,
+  useAmClockInMutation,
+  useAmClockOutMutation,
+  usePmClockInMutation,
+  usePmClockOutMutation,
   useManualEntryMutation,
   useGetAttendanceQuery,
   useGetAttendanceStatsQuery,

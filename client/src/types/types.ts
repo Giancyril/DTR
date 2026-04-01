@@ -25,8 +25,10 @@ export interface AttendanceRecord {
   userId:      string;
   user?:       Pick<User, "id" | "name" | "department" | "position">;
   date:        string;
-  timeIn:      string | null;
-  timeOut:     string | null;
+  amTimeIn:    string | null;
+  amTimeOut:   string | null;
+  pmTimeIn:    string | null;
+  pmTimeOut:   string | null;
   hoursWorked: number | null;
   status:      AttendanceStatus;
   remarks:     string | null;
