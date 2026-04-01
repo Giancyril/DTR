@@ -1,0 +1,4 @@
+DATABASE_URL="postgresql://postgres:aech123@localhost:5432/dtr_db"
+JWT_SECRET="mysecretstring"
+PORT=4000
+CLIENT_URL="http://localhost:5173"
