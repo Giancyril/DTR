@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+}
+
+model User {
+  id         String   @id @default(uuid())
+  name       String
+  email      String   @unique
+  password   String
+  role       Role     @default(EMPLOYEE)
+  department String?
+  position   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  attendance AttendanceRecord[]
+}
+
+model AttendanceRecord {
+  id          String           @id @default(uuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date        DateTime         @db.Date
+  timeIn      DateTime?
+  timeOut     DateTime?
+  hoursWorked Float?
+  status      AttendanceStatus @default(PRESENT)
+  remarks     String?
+  isManual    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([userId, date])
+}
