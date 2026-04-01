@@ -31,7 +31,8 @@ export const getUsers = async (_req: Request, res: Response) => {
 
 export const deleteUser = async (req: Request, res: Response) => {
   try {
-    await service.deleteUser(req.params.id);
+    const id = req.params.id as string;
+    await service.deleteUser(id);
     res.json({ success: true, message: "User deleted" });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
@@ -40,7 +41,8 @@ export const deleteUser = async (req: Request, res: Response) => {
 
 export const updateUser = async (req: Request, res: Response) => {
   try {
-    const data = await service.updateUser(req.params.id, req.body);
+    const id = req.params.id as string;
+    const data = await service.updateUser(id, req.body);
     res.json({ success: true, data });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
@@ -49,7 +51,7 @@ export const updateUser = async (req: Request, res: Response) => {
 
 export const changePassword = async (req: AuthRequest, res: Response) => {
   try {
-    const data = await service.changePassword(req.user.id, req.body);
+    const data = await service.changePassword(req.user!.id, req.body);
     res.json({ success: true, data });
   } catch (err: any) {
     res.status(400).json({ success: false, message: err.message });

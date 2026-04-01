@@ -4,17 +4,19 @@ import { authenticate, requireAdmin } from "../../middlewares/auth.middleware";
 
 const router = Router();
 
-// Employee routes
-router.post("/clock-in",  authenticate, controller.clockIn);
-router.post("/clock-out", authenticate, controller.clockOut);
+// Employee clock in/out — AM & PM
+router.post("/am-clock-in",  authenticate, controller.amClockIn);
+router.post("/am-clock-out", authenticate, controller.amClockOut);
+router.post("/pm-clock-in",  authenticate, controller.pmClockIn);
+router.post("/pm-clock-out", authenticate, controller.pmClockOut);
 
 // Shared
-router.get("/",       authenticate, controller.getRecords);
-router.get("/stats",  authenticate, controller.getStats);
-router.get("/dtr",    authenticate, controller.getDTRSummary);
+router.get("/",      authenticate, controller.getRecords);
+router.get("/stats", authenticate, controller.getStats);
+router.get("/dtr",   authenticate, controller.getDTRSummary);
 
 // Admin only
-router.post("/manual",   authenticate, requireAdmin, controller.manualEntry);
-router.delete("/:id",    authenticate, requireAdmin, controller.deleteRecord);
+router.post("/manual", authenticate, requireAdmin, controller.manualEntry);
+router.delete("/:id",  authenticate, requireAdmin, controller.deleteRecord);
 
 export default router;

@@ -2,25 +2,38 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
 export interface AuthRequest extends Request {
-  user?: any;
+  user?: {
+    id:    string;
+    name:  string;
+    email: string;
+    role:  string;
+  };
 }
 
-export const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
-  const token = req.headers.authorization;
-  if (!token) return res.status(401).json({ success: false, message: "No token provided" });
+export const authenticate = (req: AuthRequest, res: Response, next: NextFunction): void => {
+  const authHeader = req.headers.authorization;
+  const token = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+
+  if (!token) {
+    res.status(401).json({ success: false, message: "No token provided" });
+    return;
+  }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
+      id: string; name: string; email: string; role: string;
+    };
     req.user = decoded;
     next();
   } catch {
-    return res.status(401).json({ success: false, message: "Invalid or expired token" });
+    res.status(401).json({ success: false, message: "Invalid or expired token" });
   }
 };
 
-export const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction) => {
+export const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction): void => {
   if (req.user?.role !== "ADMIN") {
-    return res.status(403).json({ success: false, message: "Admin access required" });
+    res.status(403).json({ success: false, message: "Admin access required" });
+    return;
   }
   next();
 };
