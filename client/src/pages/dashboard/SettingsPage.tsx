@@ -80,47 +80,75 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Edit profile */}
-      <div className="bg-gray-900 border border-white/5 rounded-2xl overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-white/5 flex items-center gap-2">
-          <FaUser size={10} className="text-gray-500" />
-          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Edit Profile</h2>
-        </div>
-        <form onSubmit={handleProfileSubmit} className="p-5 space-y-3.5">
-          <div>
-            <label className={labelCls}>Full Name</label>
-            <div className="relative">
-              <FaUser size={10} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-              <input
-                type="text"
-                required
-                value={profileForm.name}
-                onChange={e => setProfileForm(f => ({ ...f, name: e.target.value }))}
-                className={inputCls + " pl-9"}
-                placeholder=" "
-              />
-            </div>
-          </div>
-          <div>
-            <label className={labelCls}>Email Address</label>
-            <div className="relative">
-              <FaEnvelope size={10} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-              <input
-                type="email"
-                required
-                value={profileForm.email}
-                onChange={e => setProfileForm(f => ({ ...f, email: e.target.value }))}
-                className={inputCls + " pl-9"}
-                placeholder=" "
-              />
-            </div>
-          </div>
-          <button type="submit" disabled={updatingProfile}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all mt-1">
-            {updatingProfile ? "Saving..." : "Save Changes"}
-          </button>
-        </form>
+      {/* Edit name */}
+<div className="bg-gray-900 border border-white/5 rounded-2xl overflow-hidden">
+  <div className="px-5 py-3.5 border-b border-white/5 flex items-center gap-2">
+    <FaUser size={10} className="text-gray-500" />
+    <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Edit Name</h2>
+  </div>
+  <form onSubmit={async (e) => {
+    e.preventDefault();
+    try {
+      await updateProfile({ name: profileForm.name }).unwrap();
+      toast.success("Name updated successfully");
+    } catch (err: any) {
+      toast.error(err?.data?.message ?? "Failed to update name");
+    }
+  }} className="p-5 space-y-3.5">
+    <div>
+      <label className={labelCls}>Full Name</label>
+      <div className="relative">
+        <FaUser size={10} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+        <input
+          type="text"
+          required
+          value={profileForm.name}
+          onChange={e => setProfileForm(f => ({ ...f, name: e.target.value }))}
+          className={inputCls + " pl-9"}
+        />
       </div>
+    </div>
+    <button type="submit" disabled={updatingProfile}
+      className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all mt-1">
+      {updatingProfile ? "Saving..." : "Save Name"}
+    </button>
+  </form>
+</div>
+
+{/* Edit email */}
+<div className="bg-gray-900 border border-white/5 rounded-2xl overflow-hidden">
+  <div className="px-5 py-3.5 border-b border-white/5 flex items-center gap-2">
+    <FaEnvelope size={10} className="text-gray-500" />
+    <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Edit Email</h2>
+  </div>
+  <form onSubmit={async (e) => {
+    e.preventDefault();
+    try {
+      await updateProfile({ email: profileForm.email }).unwrap();
+      toast.success("Email updated successfully");
+    } catch (err: any) {
+      toast.error(err?.data?.message ?? "Failed to update email");
+    }
+  }} className="p-5 space-y-3.5">
+    <div>
+      <label className={labelCls}>Email Address</label>
+      <div className="relative">
+        <FaEnvelope size={10} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+        <input
+          type="email"
+          required
+          value={profileForm.email}
+          onChange={e => setProfileForm(f => ({ ...f, email: e.target.value }))}
+          className={inputCls + " pl-9"}
+        />
+      </div>
+    </div>
+    <button type="submit" disabled={updatingProfile}
+      className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all mt-1">
+      {updatingProfile ? "Saving..." : "Save Email"}
+    </button>
+  </form>
+</div>
 
       {/* Change password */}
       <div className="bg-gray-900 border border-white/5 rounded-2xl overflow-hidden">
