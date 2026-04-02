@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useLoginMutation } from "../redux/api/api";
 import { setToken } from "../auth/auth";
 import { toast } from "react-toastify";
-import { FaClock, FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -24,68 +24,147 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4 relative overflow-hidden">
 
-        {/* Logo */}
-        <div className="flex flex-col items-center gap-3 mb-8">
-          <div className="w-12 h-12 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center">
-            <FaClock size={20} className="text-blue-400" />
+      {/* Ambient background blobs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-cyan-600/8 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-900/5 rounded-full blur-3xl" />
+        <div className="absolute inset-0 opacity-[0.015]"
+          style={{
+            backgroundImage: "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
+            backgroundSize: "40px 40px"
+          }}
+        />
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
+
+        {/* Top badge */}
+        <div className="flex justify-center mb-8">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+            <span className="text-blue-400 text-[11px] font-bold uppercase tracking-widest">Attendance System</span>
           </div>
-          <div className="text-center">
-            <h1 className="text-white text-xl font-bold tracking-tight">DTR System</h1>
-            <p className="text-gray-500 text-xs mt-0.5">Daily Time Record</p>
-          </div>
+        </div>
+
+        {/* Title */}
+        <div className="text-center mb-6">
+          <h1 className="text-white text-3xl font-black tracking-tight">DTR System</h1>
+          <p className="text-gray-500 text-sm mt-1.5 font-medium">Daily Time Record Management</p>
         </div>
 
         {/* Card */}
-        <div className="bg-gray-900 border border-white/5 rounded-2xl p-6 shadow-2xl">
-          <h2 className="text-white text-sm font-bold mb-5">Sign in to your account</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
-                Email
-              </label>
-              <input
-                type="email"
-                required
-                value={form.email}
-                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                placeholder="you@example.com"
-                className="w-full px-4 py-2.5 bg-gray-800 border border-white/8 rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-              />
+        <div className="relative">
+          <div className="absolute -inset-px rounded-3xl bg-gradient-to-b from-white/10 to-white/0 pointer-events-none" />
+          <div className="bg-gray-900/80 backdrop-blur-xl border border-white/8 rounded-3xl p-8 shadow-2xl">
+
+            <div className="mb-8 text-center">
+              <h2 className="text-white text-2xl font-black tracking-tight">Welcome back</h2>
+              <p className="text-gray-500 text-xs mt-1.5">Sign in to access your dashboard</p>
             </div>
-            <div>
-              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPass ? "text" : "password"}
-                  required
-                  value={form.password}
-                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                  placeholder="••••••••"
-                  className="w-full px-4 py-2.5 bg-gray-800 border border-white/8 rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30 pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPass(p => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
-                >
-                  {showPass ? <FaEyeSlash size={13} /> : <FaEye size={13} />}
-                </button>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+
+              {/* Email */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  Email Address
+                </label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-500 group-focus-within:text-blue-400 transition-colors">
+                      <rect x="2" y="4" width="20" height="16" rx="2"/>
+                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                    </svg>
+                  </div>
+                  <input
+                    type="email"
+                    required
+                    value={form.email}
+                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="you@company.com"
+                    className="w-full pl-10 pr-4 py-3 bg-gray-800/60 border border-white/8 rounded-2xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all"
+                  />
+                </div>
               </div>
+
+              {/* Password */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  Password
+                </label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-500 group-focus-within:text-blue-400 transition-colors">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                  </div>
+                  <input
+                    type={showPass ? "text" : "password"}
+                    required
+                    value={form.password}
+                    onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                    placeholder="••••••••••"
+                    className="w-full pl-10 pr-12 py-3 bg-gray-800/60 border border-white/8 rounded-2xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPass(p => !p)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors p-1"
+                  >
+                    {showPass ? <FaEyeSlash size={13} /> : <FaEye size={13} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="relative w-full py-3 rounded-2xl font-bold text-sm text-white overflow-hidden transition-all disabled:opacity-60 group mt-2"
+                style={{ background: "linear-gradient(135deg, #2563eb, #1d4ed8)" }}
+              >
+                <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors" />
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)" }} />
+                <span className="relative">
+                  {isLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3"/>
+                        <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                      </svg>
+                      Signing in...
+                    </span>
+                  ) : "Sign In"}
+                </span>
+              </button>
+            </form>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3 mt-6">
+              <div className="flex-1 h-px bg-white/5" />
+              <span className="text-gray-600 text-[10px] font-medium uppercase tracking-widest">Secure Login</span>
+              <div className="flex-1 h-px bg-white/5" />
             </div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all mt-2"
-            >
-              {isLoading ? "Signing in..." : "Sign In"}
-            </button>
-          </form>
+
+            {/* Security note */}
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-600">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              <p className="text-gray-600 text-[10px]">Protected with JWT authentication</p>
+            </div>
+          </div>
         </div>
+
+        {/* Footer */}
+        <p className="text-center text-gray-700 text-[10px] mt-6">
+          © {new Date().getFullYear()} DTR System · All rights reserved
+        </p>
       </div>
     </div>
   );
