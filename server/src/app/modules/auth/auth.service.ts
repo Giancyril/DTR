@@ -86,3 +86,20 @@ export const changePassword = async (id: string, body: {
   await prisma.user.update({ where: { id }, data: { password: hashed } });
   return { message: "Password updated" };
 };
+
+export const updateProfile = async (id: string, body: { name?: string; email?: string }) => {
+  if (body.email) {
+    const existing = await prisma.user.findFirst({
+      where: { email: body.email, NOT: { id } },
+    });
+    if (existing) throw new Error("Email already in use");
+  }
+
+  return prisma.user.update({
+    where: { id },
+    data: { ...body },
+    select: {
+      id: true, name: true, email: true, role: true,
+    },
+  });
+};

@@ -57,3 +57,12 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
     res.status(400).json({ success: false, message: err.message });
   }
 };
+
+export const updateProfile = async (req: AuthRequest, res: Response) => {
+  try {
+    const data = await service.updateProfile(req.user!.id, req.body);
+    res.json({ success: true, data });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
