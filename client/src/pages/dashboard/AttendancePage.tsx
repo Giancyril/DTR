@@ -94,7 +94,6 @@ function DatePicker({
       {open && (
         <div className="absolute z-50 top-full mt-1.5 left-0 bg-gray-900 border border-white/10 rounded-2xl shadow-2xl shadow-black/60 w-64 overflow-hidden">
           <div className="p-3">
-            {/* Header */}
             <div className="flex items-center justify-between mb-3">
               <button type="button" onClick={prevMonth}
                 className="w-7 h-7 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
@@ -106,15 +105,11 @@ function DatePicker({
                 <FaChevronRight size={9} />
               </button>
             </div>
-
-            {/* Day headers */}
             <div className="grid grid-cols-7 mb-1">
               {DAYS.map(d => (
                 <div key={d} className="text-center text-[9px] font-bold text-gray-500 uppercase py-1">{d}</div>
               ))}
             </div>
-
-            {/* Cells */}
             <div className="grid grid-cols-7 gap-0.5">
               {cells.map((day, i) => (
                 <div key={i}>
@@ -135,8 +130,6 @@ function DatePicker({
                 </div>
               ))}
             </div>
-
-            {/* Footer */}
             <div className="flex justify-between mt-3 pt-2.5 border-t border-white/5">
               <button type="button" onClick={() => { onChange(""); setOpen(false); }}
                 className="text-[11px] text-gray-500 hover:text-gray-300 font-semibold transition-colors">
@@ -348,7 +341,7 @@ export default function AttendancePage() {
           </select>
           <select value={filters.status}
             onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}
-            className="px-3 py-2 bg-gray-800 border border-white/8 rounded-xl text-white text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500/30 appearance-none">
+            className="px-3 py-2 bg-gray-800 border border-white/8 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30">
             <option value="">All Status</option>
             {["PRESENT","ABSENT","LATE","HALF_DAY"].map(s => (
               <option key={s} value={s}>{s.replace("_"," ")}</option>
@@ -428,7 +421,6 @@ export default function AttendancePage() {
             <div className="lg:hidden divide-y divide-white/[0.04]">
               {records.map(r => (
                 <div key={r.id} className="p-4 space-y-3">
-                  {/* Header */}
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-white text-sm font-semibold">{r.user?.name}</p>
@@ -442,8 +434,6 @@ export default function AttendancePage() {
                       </button>
                     </div>
                   </div>
-
-                  {/* Date & Hours */}
                   <div className="flex items-center gap-4">
                     <div>
                       <p className="text-[9px] text-gray-500 uppercase tracking-widest">Date</p>
@@ -454,8 +444,6 @@ export default function AttendancePage() {
                       <p className="text-white text-xs font-bold mt-0.5">{r.hoursWorked ? `${r.hoursWorked}h` : "—"}</p>
                     </div>
                   </div>
-
-                  {/* AM / PM sessions */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-blue-500/5 border border-blue-500/10 rounded-xl p-3">
                       <p className="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-2">Morning</p>
@@ -527,7 +515,8 @@ function ManualEntryModal({ users, onClose }: { users: User[]; onClose: () => vo
     }
   };
 
-  const selectCls = "w-full px-3 py-2.5 bg-gray-800 border border-white/8 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30";
+  // ← fixed: text-xs instead of text-sm
+  const selectCls = "w-full px-3 py-2 bg-gray-800 border border-white/8 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30 appearance-none";
   const labelCls  = "block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5";
 
   return (
