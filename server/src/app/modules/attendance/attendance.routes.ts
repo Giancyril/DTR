@@ -19,4 +19,7 @@ router.get("/dtr",   authenticate, controller.getDTRSummary);
 router.post("/manual", authenticate, requireAdmin, controller.manualEntry);
 router.delete("/:id",  authenticate, requireAdmin, controller.deleteRecord);
 
+// DTR PDF export — POST so body params aren't exposed in the URL
+router.post("/export-dtr", authenticate, controller.exportDTR);
+
 export default router;

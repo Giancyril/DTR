@@ -1,4 +1,5 @@
 import prisma from "../../config/prisma";
+import PDFDocument from "pdfkit";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const calcHours = (timeIn: Date, timeOut: Date): number => {
@@ -6,20 +7,11 @@ const calcHours = (timeIn: Date, timeOut: Date): number => {
   return Math.round((diff / 1000 / 60 / 60) * 100) / 100;
 };
 
-/**
- * FIX: Instead of setUTCHours(0,0,0,0) which shifts the date back 8 hours
- * (causing April 2 PH → April 1 UTC), we now get the current date in
- * Asia/Manila time and store it as UTC midnight of that local date.
- */
 const startOfDay = (date: Date): Date => {
   const ph = new Date(date.toLocaleString("en-US", { timeZone: "Asia/Manila" }));
   return new Date(Date.UTC(ph.getFullYear(), ph.getMonth(), ph.getDate()));
 };
 
-/**
- * FIX: For manual entry where date comes in as a "YYYY-MM-DD" string,
- * parse it directly into UTC midnight so it is never shifted by timezone offset.
- */
 const parseDateString = (dateStr: string): Date => {
   const [y, m, d] = dateStr.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d));
@@ -37,10 +29,21 @@ const calcTotalHours = (
   return Math.round(total * 100) / 100;
 };
 
+// FIX: accepts Date | null | undefined (Prisma returns Date, not string)
+const fmtTime = (d: Date | null | undefined): string => {
+  if (!d) return "";
+  return new Date(d).toLocaleTimeString("en-PH", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Manila",
+  });
+};
+
 // ── AM Clock In ───────────────────────────────────────────────────────────────
 export const amClockIn = async (userId: string) => {
   const now  = new Date();
-  const date = startOfDay(now); // uses PH local date now
+  const date = startOfDay(now);
 
   const existing = await prisma.attendanceRecord.findUnique({
     where: { userId_date: { userId, date } },
@@ -62,8 +65,8 @@ export const amClockOut = async (userId: string) => {
   const record = await prisma.attendanceRecord.findUnique({
     where: { userId_date: { userId, date } },
   });
-  if (!record?.amTimeIn)  throw new Error("You have not clocked in for AM session");
-  if (record.amTimeOut)   throw new Error("Already clocked out for AM session");
+  if (!record?.amTimeIn) throw new Error("You have not clocked in for AM session");
+  if (record.amTimeOut)  throw new Error("Already clocked out for AM session");
 
   const hoursWorked = calcTotalHours(record.amTimeIn, now, record.pmTimeIn, record.pmTimeOut);
 
@@ -120,8 +123,6 @@ export const manualEntry = async (body: {
   status:     "PRESENT" | "ABSENT" | "LATE" | "HALF_DAY";
   remarks?:   string;
 }) => {
-  // FIX: use parseDateString so "2025-04-02" always becomes 2025-04-02T00:00:00Z
-  // and never slips back a day due to UTC offset
   const date      = parseDateString(body.date);
   const amTimeIn  = body.amTimeIn  ? new Date(body.amTimeIn)  : undefined;
   const amTimeOut = body.amTimeOut ? new Date(body.amTimeOut) : undefined;
@@ -167,7 +168,6 @@ export const getRecords = async (params: {
   if (params.status) where.status = params.status;
   if (params.dateFrom || params.dateTo) {
     where.date = {};
-    // FIX: use parseDateString for filter dates too
     if (params.dateFrom) where.date.gte = parseDateString(params.dateFrom);
     if (params.dateTo)   where.date.lte = parseDateString(params.dateTo);
   }
@@ -195,7 +195,6 @@ export const getDTRSummary = async (params: {
   const where = {
     userId: params.userId,
     date: {
-      // FIX: use parseDateString for filter dates too
       gte: parseDateString(params.dateFrom),
       lte: parseDateString(params.dateTo),
     },
@@ -203,7 +202,7 @@ export const getDTRSummary = async (params: {
 
   const records = await prisma.attendanceRecord.findMany({
     where,
-    orderBy: { date: "desc" },
+    orderBy: { date: "asc" }, // asc so PDF rows are in order
     include: { user: { select: { id: true, name: true, department: true, position: true } } },
   });
 
@@ -243,4 +242,325 @@ export const getStats = async () => {
   ]);
 
   return { totalEmployees, presentToday, absentToday, lateToday };
+};
+
+// ── Export DTR as CS Form 48 PDF ──────────────────────────────────────────────
+export const exportDTRPdf = async (params: {
+  userId:   string;
+  dateFrom: string;
+  dateTo:   string;
+}): Promise<Buffer> => {
+  const { records, summary } = await getDTRSummary(params);
+  const user = records[0]?.user;
+
+  // ── Parse date range ───────────────────────────────────────────────────────
+  const [fromY, fromM, fromD] = params.dateFrom.split("-").map(Number);
+  const [toY,   toM,   toD]   = params.dateTo.split("-").map(Number);
+
+  // ── Build month segments — always full month (1–31), data shown only within range ──
+  type Segment = {
+    year:      number;
+    month:     number;
+    activeFrom: number; // first day with data (inclusive)
+    activeTo:   number; // last day with data (inclusive)
+  };
+  const segments: Segment[] = [];
+
+  let curY = fromY, curM = fromM;
+  while (curY < toY || (curY === toY && curM <= toM)) {
+    const isFirst        = curY === fromY && curM === fromM;
+    const isLast         = curY === toY   && curM === toM;
+    const lastDayOfMonth = new Date(curY, curM, 0).getDate();
+    segments.push({
+      year:       curY,
+      month:      curM,
+      activeFrom: isFirst ? fromD : 1,
+      activeTo:   isLast  ? toD   : lastDayOfMonth,
+    });
+    curM++;
+    if (curM > 12) { curM = 1; curY++; }
+  }
+
+  // ── Build record map keyed by "YYYY-MM-DD" ─────────────────────────────────
+  const recordMap = new Map<string, (typeof records)[0]>();
+  for (const r of records) {
+    let key: string;
+    if (r.date instanceof Date) {
+      const yy = r.date.getUTCFullYear();
+      const mm = String(r.date.getUTCMonth() + 1).padStart(2, "0");
+      const dd = String(r.date.getUTCDate()).padStart(2, "0");
+      key = `${yy}-${mm}-${dd}`;
+    } else {
+      key = (r.date as string).split("T")[0];
+    }
+    recordMap.set(key, r);
+  }
+
+  // ── Layout constants ───────────────────────────────────────────────────────
+  const ROW_H   = 13;
+  const HDR_H   = 16;
+  const HDR_H2  = 11;
+  const TOTAL_R = 14;
+  const ROWS    = 31; // always render 31 rows regardless of month length
+
+  // Fixed page height based on 31 rows — consistent across all pages
+  const PAGE_H = Math.max(
+    792,
+    105 + HDR_H + HDR_H2 + ROWS * ROW_H + TOTAL_R + 100
+  );
+
+  // Pair segments onto pages (2 per page, side by side)
+  const pages: Segment[][] = [];
+  for (let i = 0; i < segments.length; i += 2) {
+    pages.push(segments.slice(i, i + 2));
+  }
+
+  const W = 612;
+
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({
+      size:          [W, PAGE_H],
+      margin:        0,
+      layout:        "portrait",
+      autoFirstPage: false,
+    });
+
+    const chunks: Buffer[] = [];
+    doc.on("data",  (c: Buffer) => chunks.push(c));
+    doc.on("end",   () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    // ── Draw one form column ─────────────────────────────────────────────────
+    const drawForm = (offsetX: number, seg: Segment) => {
+      const col = offsetX;
+      const cw  = W / 2 - 20;
+      const cx  = col + cw;
+
+      const monthName  = new Date(seg.year, seg.month - 1, 1)
+        .toLocaleString("en-PH", { month: "long" });
+      const monthLabel = `${monthName} ${seg.year}`;
+
+      let y = 40;
+
+      // Title
+      doc.font("Helvetica-Bold").fontSize(7).fillColor("black");
+      doc.text("CS Form 48", col, y, { width: cw, align: "center" });
+      y += 11;
+      doc.fontSize(9);
+      doc.text("DAILY TIME RECORD", col, y, { width: cw, align: "center" });
+      y += 20;
+
+      // Name
+      const nameVal = user ? user.name.toUpperCase() : "________________________";
+      doc.font("Helvetica-Bold").fontSize(7.5);
+      doc.text(nameVal, col, y, { width: cw, align: "center" });
+      y += 3;
+      doc.moveTo(col + 4, y).lineTo(cx - 4, y).lineWidth(0.5).stroke();
+      y += 3;
+      doc.font("Helvetica").fontSize(6).fillColor("#555555");
+      doc.text("Name", col, y, { width: cw, align: "center" });
+      doc.fillColor("black");
+      y += 14;
+
+      // Header info
+      doc.font("Helvetica").fontSize(6.5);
+      doc.text("For the month of ", col + 4, y, { continued: true })
+         .font("Helvetica-Bold").text(monthLabel, { continued: true })
+         .font("Helvetica").text("_".repeat(6));
+      y += 10;
+      doc.text("Office Hours (regular days) ", col + 4, y, { continued: true })
+         .text("_".repeat(18));
+      y += 9;
+      doc.text("Arrival & Departure: ", col + 4, y, { continued: true })
+         .text("_".repeat(22));
+      y += 9;
+      doc.text("Saturdays: ", col + 4, y, { continued: true })
+         .text("_".repeat(28));
+      y += 14;
+
+      // Table setup
+      const tableLeft  = col + 4;
+      const tableRight = cx - 4;
+      const tableW     = tableRight - tableLeft;
+
+      const cols = {
+        day:   tableW * 0.10,
+        amArr: tableW * 0.18,
+        amDep: tableW * 0.18,
+        pmArr: tableW * 0.18,
+        pmDep: tableW * 0.18,
+        under: tableW * 0.09,
+        over:  tableW * 0.09,
+      };
+
+      let ty = y;
+
+      // Header row 1
+      doc.rect(tableLeft, ty, tableW, HDR_H).lineWidth(0.5).stroke();
+      doc.font("Helvetica-Bold").fontSize(6.5);
+
+      let cx2 = tableLeft;
+      doc.moveTo(cx2 + cols.day, ty).lineTo(cx2 + cols.day, ty + HDR_H).stroke();
+      cx2 += cols.day;
+
+      doc.text("A M", cx2, ty + 5, { width: cols.amArr + cols.amDep, align: "center" });
+      doc.moveTo(cx2, ty).lineTo(cx2, ty + HDR_H).stroke();
+      cx2 += cols.amArr + cols.amDep;
+
+      doc.text("P M", cx2, ty + 5, { width: cols.pmArr + cols.pmDep, align: "center" });
+      doc.moveTo(cx2, ty).lineTo(cx2, ty + HDR_H).stroke();
+      cx2 += cols.pmArr + cols.pmDep;
+
+      doc.text("Under\nTime", cx2, ty + 2, { width: cols.under, align: "center" });
+      doc.moveTo(cx2, ty).lineTo(cx2, ty + HDR_H).stroke();
+      cx2 += cols.under;
+
+      doc.text("Over\nTime", cx2, ty + 2, { width: cols.over, align: "center" });
+      doc.moveTo(cx2, ty).lineTo(cx2, ty + HDR_H).stroke();
+      ty += HDR_H;
+
+      // Header row 2
+      doc.rect(tableLeft, ty, tableW, HDR_H2).stroke();
+      cx2 = tableLeft;
+      doc.font("Helvetica-Bold").fontSize(6);
+
+      doc.text("Day", cx2, ty + 3, { width: cols.day, align: "center" });
+      doc.moveTo(cx2 + cols.day, ty).lineTo(cx2 + cols.day, ty + HDR_H2).stroke();
+      cx2 += cols.day;
+
+      doc.text("Arr.", cx2, ty + 3, { width: cols.amArr, align: "center" });
+      doc.moveTo(cx2 + cols.amArr, ty).lineTo(cx2 + cols.amArr, ty + HDR_H2).stroke();
+      cx2 += cols.amArr;
+
+      doc.text("Dep.", cx2, ty + 3, { width: cols.amDep, align: "center" });
+      doc.moveTo(cx2 + cols.amDep, ty).lineTo(cx2 + cols.amDep, ty + HDR_H2).stroke();
+      cx2 += cols.amDep;
+
+      doc.text("Arr.", cx2, ty + 3, { width: cols.pmArr, align: "center" });
+      doc.moveTo(cx2 + cols.pmArr, ty).lineTo(cx2 + cols.pmArr, ty + HDR_H2).stroke();
+      cx2 += cols.pmArr;
+
+      doc.text("Dep.", cx2, ty + 3, { width: cols.pmDep, align: "center" });
+      doc.moveTo(cx2 + cols.pmDep, ty).lineTo(cx2 + cols.pmDep, ty + HDR_H2).stroke();
+      cx2 += cols.pmDep;
+
+      doc.text("Hrs.", cx2, ty + 3, { width: cols.under, align: "center" });
+      doc.moveTo(cx2 + cols.under, ty).lineTo(cx2 + cols.under, ty + HDR_H2).stroke();
+      cx2 += cols.under;
+
+      doc.text("Min.", cx2, ty + 3, { width: cols.over, align: "center" });
+      ty += HDR_H2;
+
+      // ── Data rows — always 31, data only shown within activeFrom..activeTo ──
+      doc.font("Helvetica").fontSize(6);
+      let segTotalHours = 0;
+
+      for (let day = 1; day <= ROWS; day++) {
+        const isActive = day >= seg.activeFrom && day <= seg.activeTo;
+        const mm  = String(seg.month).padStart(2, "0");
+        const dd  = String(day).padStart(2, "0");
+        const rec = isActive ? recordMap.get(`${seg.year}-${mm}-${dd}`) : undefined;
+
+        doc.rect(tableLeft, ty, tableW, ROW_H).stroke();
+        cx2 = tableLeft;
+
+        doc.font("Helvetica-Bold").fontSize(6);
+        doc.text(String(day), cx2, ty + 3.5, { width: cols.day, align: "center" });
+        doc.moveTo(cx2 + cols.day, ty).lineTo(cx2 + cols.day, ty + ROW_H).stroke();
+        cx2 += cols.day;
+
+        doc.font("Helvetica").fontSize(6);
+
+        doc.text(rec ? fmtTime(rec.amTimeIn)  : "", cx2, ty + 3.5, { width: cols.amArr, align: "center" });
+        doc.moveTo(cx2 + cols.amArr, ty).lineTo(cx2 + cols.amArr, ty + ROW_H).stroke();
+        cx2 += cols.amArr;
+
+        doc.text(rec ? fmtTime(rec.amTimeOut) : "", cx2, ty + 3.5, { width: cols.amDep, align: "center" });
+        doc.moveTo(cx2 + cols.amDep, ty).lineTo(cx2 + cols.amDep, ty + ROW_H).stroke();
+        cx2 += cols.amDep;
+
+        doc.text(rec ? fmtTime(rec.pmTimeIn)  : "", cx2, ty + 3.5, { width: cols.pmArr, align: "center" });
+        doc.moveTo(cx2 + cols.pmArr, ty).lineTo(cx2 + cols.pmArr, ty + ROW_H).stroke();
+        cx2 += cols.pmArr;
+
+        doc.text(rec ? fmtTime(rec.pmTimeOut) : "", cx2, ty + 3.5, { width: cols.pmDep, align: "center" });
+        doc.moveTo(cx2 + cols.pmDep, ty).lineTo(cx2 + cols.pmDep, ty + ROW_H).stroke();
+        cx2 += cols.pmDep;
+
+        // Undertime (blank — fill manually)
+        doc.moveTo(cx2 + cols.under, ty).lineTo(cx2 + cols.under, ty + ROW_H).stroke();
+        cx2 += cols.under;
+
+        // Overtime minutes
+        const overtimeMins = rec?.hoursWorked && rec.hoursWorked > 8
+          ? String(Math.round((rec.hoursWorked - 8) * 60))
+          : "";
+        doc.text(overtimeMins, cx2, ty + 3.5, { width: cols.over, align: "center" });
+
+        if (rec?.hoursWorked) segTotalHours += rec.hoursWorked;
+        ty += ROW_H;
+      }
+
+      // Total row
+      doc.rect(tableLeft, ty, tableW, TOTAL_R).stroke();
+      doc.font("Helvetica-Bold").fontSize(6);
+
+      const labelW = cols.day + cols.amArr + cols.amDep + cols.pmArr + cols.pmDep;
+      doc.text("TOTAL", tableLeft, ty + 4, { width: labelW - 4, align: "right" });
+
+      const totalX = tableLeft + labelW;
+      doc.moveTo(totalX, ty).lineTo(totalX, ty + TOTAL_R).stroke();
+      const totalHrsDisplay = segTotalHours > 0
+        ? `${Math.round(segTotalHours * 100) / 100}h`
+        : "";
+      doc.text(totalHrsDisplay, totalX, ty + 4, { width: cols.under, align: "center" });
+      doc.moveTo(totalX + cols.under, ty).lineTo(totalX + cols.under, ty + TOTAL_R).stroke();
+      ty += TOTAL_R + 14;
+
+      // Certification text
+      doc.font("Helvetica").fontSize(6).fillColor("black");
+      doc.text(
+        "I certify on my honor that the above is true and correct record of the hours of work performed, " +
+        "record of which was made daily at the time of arrival and departure from the office.",
+        tableLeft, ty, { width: tableW, align: "justify" }
+      );
+      ty += 32;
+
+      // Signature line
+      const sigIndent = 15;
+      doc.moveTo(tableLeft + sigIndent, ty).lineTo(tableRight - sigIndent, ty).lineWidth(0.5).stroke();
+      ty += 4;
+      doc.fontSize(6).fillColor("#555555");
+      doc.text("(Signature)", tableLeft, ty, { width: tableW, align: "center" });
+      doc.fillColor("black");
+      ty += 16;
+
+      doc.font("Helvetica").fontSize(6);
+      doc.text("Verified as to the prescribed office hours:", tableLeft, ty, { width: tableW, align: "center" });
+      ty += 20;
+
+      doc.moveTo(tableLeft + sigIndent, ty).lineTo(tableRight - sigIndent, ty).stroke();
+      ty += 4;
+      doc.fillColor("#555555");
+      doc.text("(In-charge)", tableLeft, ty, { width: tableW, align: "center" });
+      doc.fillColor("black");
+    };
+
+    // ── Render each page ─────────────────────────────────────────────────────
+    pages.forEach((pair) => {
+      doc.addPage({ size: [W, PAGE_H], margin: 0 });
+
+      // Left form
+      drawForm(10, pair[0]);
+
+      // Dashed center divider
+      doc.moveTo(W / 2, 30).lineTo(W / 2, PAGE_H - 30)
+         .lineWidth(0.5).dash(3, { space: 3 }).stroke().undash();
+
+      // Right form — second segment if available, otherwise duplicate left
+      drawForm(W / 2 + 10, pair[1] ?? pair[0]);
+    });
+
+    doc.end();
+  });
 };

@@ -30,6 +30,16 @@ const api = baseApi.injectEndpoints({
       query: (body) => ({ url: "/auth/profile", method: "PUT", body }),
     }),
 
+    // ── Print
+    exportDTR: build.mutation<{ base64: string }, { userId: string; dateFrom: string; dateTo: string }>({
+      query: (body) => ({
+        url: "/attendance/export-dtr",
+        method: "POST",
+        body,
+        // No responseHandler — server already returns { success: true, base64: "..." } as JSON
+      }),
+    }),
+
     // ── Attendance ────────────────────────────────────────────────────────
     amClockIn: build.mutation({
       query: () => ({ url: "/attendance/am-clock-in", method: "POST" }),
@@ -90,4 +100,5 @@ export const {
   useGetDTRSummaryQuery,
   useDeleteAttendanceMutation,
   useUpdateProfileMutation,
+  useExportDTRMutation,
 } = api;
