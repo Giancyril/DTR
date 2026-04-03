@@ -12,10 +12,8 @@ const fmt = (d: string | null | undefined) => {
   return new Date(d).toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Manila" });
 };
 
-// FIX: parse date string parts directly with local Date constructor
-// new Date("YYYY-MM-DD") parses as UTC and shifts back 1 day in UTC+8
 const fmtDate = (d: string) => {
-  const datePart = d.split("T")[0]; // handles "2026-04-03T00:00:00.000Z" or "2026-04-03"
+  const datePart = d.split("T")[0];
   const [y, m, day] = datePart.split("-").map(Number);
   return new Date(y, m - 1, day).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
 };
@@ -31,7 +29,6 @@ function DatePicker({
   placeholder?: string;
 }) {
   const [open,      setOpen]      = useState(false);
-  // FIX: parse viewYear/viewMonth from the string parts, not from new Date(value)
   const [viewYear,  setViewYear]  = useState(() => value ? parseInt(value.split("-")[0]) : new Date().getFullYear());
   const [viewMonth, setViewMonth] = useState(() => value ? parseInt(value.split("-")[1]) - 1 : new Date().getMonth());
   const ref = useRef<HTMLDivElement>(null);
@@ -55,7 +52,6 @@ function DatePicker({
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
 
-  // FIX: compare parts directly — never use new Date("YYYY-MM-DD")
   const isSelected = (day: number) => {
     if (!value) return false;
     const [y, m, d] = value.split("-").map(Number);
@@ -67,7 +63,6 @@ function DatePicker({
     return t.getFullYear() === viewYear && t.getMonth() === viewMonth && t.getDate() === day;
   };
 
-  // FIX: build ISO string from parts — no Date object, no offset risk
   const pick = (day: number) => {
     const mm = String(viewMonth + 1).padStart(2, "0");
     const dd = String(day).padStart(2, "0");
@@ -84,7 +79,6 @@ function DatePicker({
     else setViewMonth(m => m + 1);
   };
 
-  // FIX: display using local Date constructor (y, m-1, d) — safe, no UTC shift
   const display = (() => {
     if (!value) return placeholder;
     const [y, m, d] = value.split("-").map(Number);
@@ -167,6 +161,8 @@ function DatePicker({
 }
 
 // ── Custom Time Picker ────────────────────────────────────────────────────────
+// FIX: uses fixed positioning from trigger's bounding rect so the dropdown
+// renders outside the scroll container and never shifts the modal layout.
 function TimePicker({
   value,
   onChange,
@@ -179,7 +175,9 @@ function TimePicker({
   accentColor?: "blue" | "indigo";
 }) {
   const [open, setOpen] = useState(false);
-  const ref             = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const triggerRef  = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const hours   = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"));
   const minutes = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"];
@@ -214,19 +212,47 @@ function TimePicker({
     indigo: { ring: "ring-indigo-500/30", badge: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20", col: "text-indigo-400" },
   }[accentColor];
 
+  const openDropdown = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setDropdownStyle({
+        position: "fixed",
+        top:   rect.bottom + 6,
+        left:  rect.left,
+        width: rect.width,
+        zIndex: 9999,
+      });
+    }
+    setOpen(true);
+  };
+
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    const handleOutside = (e: MouseEvent) => {
+      if (
+        !triggerRef.current?.contains(e.target as Node) &&
+        !dropdownRef.current?.contains(e.target as Node)
+      ) setOpen(false);
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const handleScroll = () => {
+      if (triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect();
+        setDropdownStyle(prev => ({ ...prev, top: rect.bottom + 6, left: rect.left }));
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("scroll", handleScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("scroll", handleScroll, true);
+    };
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <div
-        onClick={() => setOpen(o => !o)}
+        ref={triggerRef}
+        onClick={() => open ? setOpen(false) : openDropdown()}
         className={`w-full flex items-center justify-between gap-2 px-3 py-2 bg-gray-800 border border-white/8 rounded-xl cursor-pointer select-none transition-all ring-2 ${open ? accent.ring : "ring-transparent"} ${value ? "text-white" : "text-gray-500"}`}
       >
         <div className="flex items-center gap-2 pointer-events-none">
@@ -241,8 +267,10 @@ function TimePicker({
         )}
       </div>
 
+      {/* Dropdown at fixed screen position — never affects scroll/layout */}
       {open && (
-        <div className="absolute z-50 top-full mt-1.5 left-0 right-0 bg-gray-900 border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden">
+        <div ref={dropdownRef} style={dropdownStyle}
+          className="bg-gray-900 border border-white/10 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden">
           <div className="p-3">
             <div className="flex gap-2">
               <div className="flex-1">
@@ -551,7 +579,8 @@ function ManualEntryModal({ users, onClose }: { users: User[]; onClose: () => vo
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto">
+        {/* FIX: overflow-y-scroll always reserves scrollbar space → no layout shift when picker opens */}
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-scroll">
           <div>
             <label className={labelCls}>Employee</label>
             <select required value={form.userId}
