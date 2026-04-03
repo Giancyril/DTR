@@ -12,8 +12,13 @@ const fmt = (d: string | null | undefined) => {
   return new Date(d).toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Manila" });
 };
 
-const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
-const toISO   = (d: Date)   => d.toISOString().split("T")[0];
+// FIX: parse date string parts directly with local Date constructor
+// new Date("YYYY-MM-DD") parses as UTC and shifts back 1 day in UTC+8
+const fmtDate = (d: string) => {
+  const datePart = d.split("T")[0]; // handles "2026-04-03T00:00:00.000Z" or "2026-04-03"
+  const [y, m, day] = datePart.split("-").map(Number);
+  return new Date(y, m - 1, day).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+};
 
 // ── Custom Date Picker ────────────────────────────────────────────────────────
 function DatePicker({
@@ -26,8 +31,9 @@ function DatePicker({
   placeholder?: string;
 }) {
   const [open,      setOpen]      = useState(false);
-  const [viewYear,  setViewYear]  = useState(() => value ? new Date(value).getFullYear() : new Date().getFullYear());
-  const [viewMonth, setViewMonth] = useState(() => value ? new Date(value).getMonth()    : new Date().getMonth());
+  // FIX: parse viewYear/viewMonth from the string parts, not from new Date(value)
+  const [viewYear,  setViewYear]  = useState(() => value ? parseInt(value.split("-")[0]) : new Date().getFullYear());
+  const [viewMonth, setViewMonth] = useState(() => value ? parseInt(value.split("-")[1]) - 1 : new Date().getMonth());
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,20 +55,23 @@ function DatePicker({
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
 
-  const selected   = value ? new Date(value + "T00:00:00") : null;
-  const isSelected = (day: number) =>
-    selected &&
-    selected.getFullYear() === viewYear &&
-    selected.getMonth()    === viewMonth &&
-    selected.getDate()     === day;
+  // FIX: compare parts directly — never use new Date("YYYY-MM-DD")
+  const isSelected = (day: number) => {
+    if (!value) return false;
+    const [y, m, d] = value.split("-").map(Number);
+    return y === viewYear && (m - 1) === viewMonth && d === day;
+  };
 
   const isToday = (day: number) => {
     const t = new Date();
     return t.getFullYear() === viewYear && t.getMonth() === viewMonth && t.getDate() === day;
   };
 
+  // FIX: build ISO string from parts — no Date object, no offset risk
   const pick = (day: number) => {
-    onChange(toISO(new Date(viewYear, viewMonth, day)));
+    const mm = String(viewMonth + 1).padStart(2, "0");
+    const dd = String(day).padStart(2, "0");
+    onChange(`${viewYear}-${mm}-${dd}`);
     setOpen(false);
   };
 
@@ -75,9 +84,12 @@ function DatePicker({
     else setViewMonth(m => m + 1);
   };
 
-  const display = value
-    ? new Date(value + "T00:00:00").toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })
-    : placeholder;
+  // FIX: display using local Date constructor (y, m-1, d) — safe, no UTC shift
+  const display = (() => {
+    if (!value) return placeholder;
+    const [y, m, d] = value.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+  })();
 
   return (
     <div ref={ref} className="relative">
@@ -137,7 +149,12 @@ function DatePicker({
                 className="text-[11px] text-gray-500 hover:text-gray-300 font-semibold transition-colors">
                 Clear
               </button>
-              <button type="button" onClick={() => { const t = new Date(); setViewYear(t.getFullYear()); setViewMonth(t.getMonth()); pick(t.getDate()); }}
+              <button type="button" onClick={() => {
+                const t = new Date();
+                setViewYear(t.getFullYear());
+                setViewMonth(t.getMonth());
+                pick(t.getDate());
+              }}
                 className="text-[11px] text-blue-400 hover:text-blue-300 font-semibold transition-colors">
                 Today
               </button>
@@ -535,8 +552,6 @@ function ManualEntryModal({ users, onClose }: { users: User[]; onClose: () => vo
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto">
-
-          {/* Employee */}
           <div>
             <label className={labelCls}>Employee</label>
             <select required value={form.userId}
@@ -549,7 +564,6 @@ function ManualEntryModal({ users, onClose }: { users: User[]; onClose: () => vo
             </select>
           </div>
 
-          {/* Date & Status */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Date</label>
@@ -567,7 +581,6 @@ function ManualEntryModal({ users, onClose }: { users: User[]; onClose: () => vo
             </div>
           </div>
 
-          {/* AM Session */}
           <div className="bg-blue-500/5 border border-blue-500/15 rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
@@ -585,7 +598,6 @@ function ManualEntryModal({ users, onClose }: { users: User[]; onClose: () => vo
             </div>
           </div>
 
-          {/* PM Session */}
           <div className="bg-indigo-500/5 border border-indigo-500/15 rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
@@ -603,7 +615,6 @@ function ManualEntryModal({ users, onClose }: { users: User[]; onClose: () => vo
             </div>
           </div>
 
-          {/* Remarks */}
           <div>
             <label className={labelCls}>Remarks</label>
             <input value={form.remarks}

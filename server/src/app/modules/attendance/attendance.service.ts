@@ -6,10 +6,23 @@ const calcHours = (timeIn: Date, timeOut: Date): number => {
   return Math.round((diff / 1000 / 60 / 60) * 100) / 100;
 };
 
-const startOfDay = (date: Date) => {
-  const d = new Date(date);
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
+/**
+ * FIX: Instead of setUTCHours(0,0,0,0) which shifts the date back 8 hours
+ * (causing April 2 PH → April 1 UTC), we now get the current date in
+ * Asia/Manila time and store it as UTC midnight of that local date.
+ */
+const startOfDay = (date: Date): Date => {
+  const ph = new Date(date.toLocaleString("en-US", { timeZone: "Asia/Manila" }));
+  return new Date(Date.UTC(ph.getFullYear(), ph.getMonth(), ph.getDate()));
+};
+
+/**
+ * FIX: For manual entry where date comes in as a "YYYY-MM-DD" string,
+ * parse it directly into UTC midnight so it is never shifted by timezone offset.
+ */
+const parseDateString = (dateStr: string): Date => {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
 };
 
 const calcTotalHours = (
@@ -27,7 +40,7 @@ const calcTotalHours = (
 // ── AM Clock In ───────────────────────────────────────────────────────────────
 export const amClockIn = async (userId: string) => {
   const now  = new Date();
-  const date = startOfDay(now);
+  const date = startOfDay(now); // uses PH local date now
 
   const existing = await prisma.attendanceRecord.findUnique({
     where: { userId_date: { userId, date } },
@@ -107,7 +120,9 @@ export const manualEntry = async (body: {
   status:     "PRESENT" | "ABSENT" | "LATE" | "HALF_DAY";
   remarks?:   string;
 }) => {
-  const date      = startOfDay(new Date(body.date));
+  // FIX: use parseDateString so "2025-04-02" always becomes 2025-04-02T00:00:00Z
+  // and never slips back a day due to UTC offset
+  const date      = parseDateString(body.date);
   const amTimeIn  = body.amTimeIn  ? new Date(body.amTimeIn)  : undefined;
   const amTimeOut = body.amTimeOut ? new Date(body.amTimeOut) : undefined;
   const pmTimeIn  = body.pmTimeIn  ? new Date(body.pmTimeIn)  : undefined;
@@ -152,8 +167,9 @@ export const getRecords = async (params: {
   if (params.status) where.status = params.status;
   if (params.dateFrom || params.dateTo) {
     where.date = {};
-    if (params.dateFrom) where.date.gte = startOfDay(new Date(params.dateFrom));
-    if (params.dateTo)   where.date.lte = startOfDay(new Date(params.dateTo));
+    // FIX: use parseDateString for filter dates too
+    if (params.dateFrom) where.date.gte = parseDateString(params.dateFrom);
+    if (params.dateTo)   where.date.lte = parseDateString(params.dateTo);
   }
 
   const [records, total] = await Promise.all([
@@ -179,8 +195,9 @@ export const getDTRSummary = async (params: {
   const where = {
     userId: params.userId,
     date: {
-      gte: startOfDay(new Date(params.dateFrom)),
-      lte: startOfDay(new Date(params.dateTo)),
+      // FIX: use parseDateString for filter dates too
+      gte: parseDateString(params.dateFrom),
+      lte: parseDateString(params.dateTo),
     },
   };
 

@@ -4,9 +4,26 @@ import { useUser, isAdmin } from "../../auth/auth";
 import { FaFileAlt, FaCalendarAlt, FaPrint, FaTimes, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import type { AttendanceRecord, User } from "../../types/types";
 
-const fmt     = (d: string | null | undefined) => d ? new Date(d).toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" }) : "—";
-const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" });
-const toISO   = (d: Date)   => d.toISOString().split("T")[0];
+const fmt = (d: string | null | undefined) => {
+  if (!d) return "—";
+  return new Date(d).toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Manila" });
+};
+
+// FIX: parse date string parts directly with local Date constructor
+// new Date("YYYY-MM-DD") parses as UTC and shifts back 1 day in UTC+8
+const fmtDate = (d: string) => {
+  const datePart = d.split("T")[0]; // handles full ISO string from API
+  const [y, m, day] = datePart.split("-").map(Number);
+  return new Date(y, m - 1, day).toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" });
+};
+
+// FIX: same fix for toISO — use local date parts, not new Date(string)
+const toISO = (d: Date) => {
+  const y  = d.getFullYear();
+  const m  = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+};
 
 // ── Custom Date Picker ────────────────────────────────────────────────────────
 function DatePicker({
@@ -19,8 +36,9 @@ function DatePicker({
   placeholder?: string;
 }) {
   const [open,      setOpen]      = useState(false);
-  const [viewYear,  setViewYear]  = useState(() => value ? new Date(value).getFullYear() : new Date().getFullYear());
-  const [viewMonth, setViewMonth] = useState(() => value ? new Date(value).getMonth()    : new Date().getMonth());
+  // FIX: parse viewYear/viewMonth from string parts, not new Date(value)
+  const [viewYear,  setViewYear]  = useState(() => value ? parseInt(value.split("-")[0]) : new Date().getFullYear());
+  const [viewMonth, setViewMonth] = useState(() => value ? parseInt(value.split("-")[1]) - 1 : new Date().getMonth());
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -42,20 +60,23 @@ function DatePicker({
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
 
-  const selected   = value ? new Date(value + "T00:00:00") : null;
-  const isSelected = (day: number) =>
-    selected &&
-    selected.getFullYear() === viewYear &&
-    selected.getMonth()    === viewMonth &&
-    selected.getDate()     === day;
+  // FIX: compare parts directly — never use new Date("YYYY-MM-DD")
+  const isSelected = (day: number) => {
+    if (!value) return false;
+    const [y, m, d] = value.split("-").map(Number);
+    return y === viewYear && (m - 1) === viewMonth && d === day;
+  };
 
   const isToday = (day: number) => {
     const t = new Date();
     return t.getFullYear() === viewYear && t.getMonth() === viewMonth && t.getDate() === day;
   };
 
+  // FIX: build ISO string from parts — no Date object, no offset risk
   const pick = (day: number) => {
-    onChange(toISO(new Date(viewYear, viewMonth, day)));
+    const mm = String(viewMonth + 1).padStart(2, "0");
+    const dd = String(day).padStart(2, "0");
+    onChange(`${viewYear}-${mm}-${dd}`);
     setOpen(false);
   };
 
@@ -68,9 +89,12 @@ function DatePicker({
     else setViewMonth(m => m + 1);
   };
 
-  const display = value
-    ? new Date(value + "T00:00:00").toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })
-    : placeholder;
+  // FIX: display using local Date constructor (y, m-1, d) — safe, no UTC shift
+  const display = (() => {
+    if (!value) return placeholder;
+    const [y, m, d] = value.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+  })();
 
   return (
     <div ref={ref} className="relative">
@@ -79,10 +103,10 @@ function DatePicker({
         className={`w-full flex items-center gap-2 px-3 py-2.5 bg-gray-800 border border-white/8 rounded-xl cursor-pointer select-none transition-all ring-2 ${open ? "ring-blue-500/30" : "ring-transparent"} ${value ? "text-white" : "text-gray-500"}`}
       >
         <FaCalendarAlt size={11} className={value ? "text-blue-400" : "text-gray-600"} />
-        <span className="text-sm font-medium flex-1">{display}</span>
+        <span className="text-sm font-medium flex-1 truncate whitespace-nowrap">{display}</span>
         {value && (
           <span role="button" onClick={e => { e.stopPropagation(); onChange(""); }}
-            className="text-gray-600 hover:text-gray-400 transition-colors cursor-pointer">
+            className="text-gray-600 hover:text-gray-400 transition-colors cursor-pointer shrink-0">
             <FaTimes size={9} />
           </span>
         )}
@@ -130,7 +154,12 @@ function DatePicker({
                 className="text-[11px] text-gray-500 hover:text-gray-300 font-semibold transition-colors">
                 Clear
               </button>
-              <button type="button" onClick={() => { const t = new Date(); setViewYear(t.getFullYear()); setViewMonth(t.getMonth()); pick(t.getDate()); }}
+              <button type="button" onClick={() => {
+                const t = new Date();
+                setViewYear(t.getFullYear());
+                setViewMonth(t.getMonth());
+                pick(t.getDate());
+              }}
                 className="text-[11px] text-blue-400 hover:text-blue-300 font-semibold transition-colors">
                 Today
               </button>
@@ -235,8 +264,6 @@ export default function DTRPage() {
           <FaCalendarAlt size={10} className="text-gray-500" />
           <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Period</span>
         </div>
-
-        {/* Quick ranges */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {(["this-week","last-week","this-month","last-month"] as const).map(r => (
             <button key={r} onClick={() => applyRange(r)}
@@ -245,8 +272,6 @@ export default function DTRPage() {
             </button>
           ))}
         </div>
-
-        {/* Date pickers + employee selector */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {admin && (
             <select value={selectedUserId} onChange={e => setSelectedUserId(e.target.value)}
@@ -325,13 +350,10 @@ export default function DTRPage() {
                   {records.map(r => (
                     <tr key={r.id} className="hover:bg-white/[0.02] transition-colors">
                       <td className="px-4 py-3 text-white text-xs font-medium whitespace-nowrap">{fmtDate(r.date)}</td>
-                      {/* Morning */}
                       <td className="px-4 py-3 text-center text-blue-300/80 text-xs border-l border-white/[0.04]">{fmt(r.amTimeIn)}</td>
                       <td className="px-4 py-3 text-center text-blue-300/80 text-xs">{fmt(r.amTimeOut)}</td>
-                      {/* Afternoon */}
                       <td className="px-4 py-3 text-center text-indigo-300/80 text-xs border-l border-white/[0.04]">{fmt(r.pmTimeIn)}</td>
                       <td className="px-4 py-3 text-center text-indigo-300/80 text-xs">{fmt(r.pmTimeOut)}</td>
-                      {/* Hours */}
                       <td className="px-4 py-3 text-gray-300 text-xs font-semibold border-l border-white/[0.04]">
                         {r.hoursWorked ? `${r.hoursWorked}h` : "—"}
                       </td>
