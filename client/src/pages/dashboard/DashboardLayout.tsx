@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
-import { useUser, signOut, isAdmin } from "../../auth/auth";
+import { useUser, signOut } from "../../auth/auth";
 import { toast } from "react-toastify";
 import {
   FaHome, FaClock, FaClipboardList, FaUsers, FaCog,
@@ -8,25 +8,25 @@ import {
 } from "react-icons/fa";
 
 const adminNav = [
-  { to: "/dashboard",     label: "Overview",       icon: FaHome },
-  { to: "/attendance",    label: "Attendance",      icon: FaClipboardList },
-  { to: "/dtr",           label: "DTR Summary",     icon: FaFileAlt },
-  { to: "/employees",     label: "Employees",       icon: FaUsers },
-  { to: "/settings",      label: "Settings",        icon: FaCog },
+  { to: "/dashboard",     label: "Overview",    icon: FaHome },
+  { to: "/attendance",    label: "Attendance",  icon: FaClipboardList },
+  { to: "/dtr",           label: "DTR Summary", icon: FaFileAlt },
+  { to: "/employees",     label: "Employees",   icon: FaUsers },
+  { to: "/settings",      label: "Settings",    icon: FaCog },
 ];
 
 const employeeNav = [
-  { to: "/dashboard",      label: "Overview",      icon: FaHome },
-  { to: "/my-attendance",  label: "My Attendance", icon: FaClipboardList },
-  { to: "/dtr",            label: "My DTR",        icon: FaFileAlt },
-  { to: "/settings",       label: "Settings",      icon: FaCog },
+  { to: "/dashboard",     label: "Overview",      icon: FaHome },
+  { to: "/my-attendance", label: "My Attendance", icon: FaClipboardList },
+  { to: "/dtr",           label: "My DTR",        icon: FaFileAlt },
+  { to: "/settings",      label: "Settings",      icon: FaCog },
 ];
 
 export default function DashboardLayout() {
-  const navigate  = useNavigate();
-  const location  = useLocation();
-  const user      = useUser();
-  const admin     = isAdmin();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const user     = useUser();
+  const admin    = user?.role === "ADMIN";
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -44,7 +44,11 @@ export default function DashboardLayout() {
     return () => document.removeEventListener("mousedown", handler);
   }, [profileOpen]);
 
-  const handleSignOut = () => { signOut(navigate); toast.info("Signed out"); };
+  const handleSignOut = () => {
+    if (!confirm("Are you sure you want to sign out?")) return;
+    signOut(navigate);
+    toast.info("Signed out successfully");
+  };
 
   const initial = user?.name?.charAt(0).toUpperCase() ?? "U";
 
@@ -139,6 +143,9 @@ function SidebarContent({ nav, onNavigate }: { nav: typeof adminNav; onNavigate:
     <div className="flex flex-col h-full">
       <div className="px-5 border-b border-white/5 shrink-0 h-14 flex items-center">
         <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-600/15 border border-blue-500/20 flex items-center justify-center">
+            <FaClock size={13} className="text-blue-400" />
+          </div>
           <div>
             <p className="text-white text-sm font-bold tracking-wide">DTR System</p>
             <p className="text-gray-500 text-[9px] uppercase tracking-widest">Daily Time Record</p>
