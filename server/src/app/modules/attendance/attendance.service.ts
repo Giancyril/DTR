@@ -29,7 +29,6 @@ const calcTotalHours = (
   return Math.round(total * 100) / 100;
 };
 
-// FIX: accepts Date | null | undefined (Prisma returns Date, not string)
 const fmtTime = (d: Date | null | undefined): string => {
   if (!d) return "";
   return new Date(d).toLocaleTimeString("en-PH", {
@@ -40,10 +39,18 @@ const fmtTime = (d: Date | null | undefined): string => {
   });
 };
 
+// ── Late detection ────────────────────────────────────────────────────────────
+// Returns true if the given Date is past 08:00 PHT
+const isLate = (date: Date): boolean => {
+  const ph = new Date(date.toLocaleString("en-US", { timeZone: "Asia/Manila" }));
+  return ph.getHours() > 8 || (ph.getHours() === 8 && ph.getMinutes() > 0);
+};
+
 // ── AM Clock In ───────────────────────────────────────────────────────────────
 export const amClockIn = async (userId: string) => {
-  const now  = new Date();
-  const date = startOfDay(now);
+  const now    = new Date();
+  const date   = startOfDay(now);
+  const status = isLate(now) ? "LATE" : "PRESENT";
 
   const existing = await prisma.attendanceRecord.findUnique({
     where: { userId_date: { userId, date } },
@@ -52,8 +59,8 @@ export const amClockIn = async (userId: string) => {
 
   return prisma.attendanceRecord.upsert({
     where:  { userId_date: { userId, date } },
-    create: { userId, date, amTimeIn: now, status: "PRESENT" },
-    update: { amTimeIn: now, status: "PRESENT" },
+    create: { userId, date, amTimeIn: now, status },
+    update: { amTimeIn: now, status },
   });
 };
 
@@ -202,7 +209,7 @@ export const getDTRSummary = async (params: {
 
   const records = await prisma.attendanceRecord.findMany({
     where,
-    orderBy: { date: "asc" }, // asc so PDF rows are in order
+    orderBy: { date: "asc" },
     include: { user: { select: { id: true, name: true, department: true, position: true } } },
   });
 
@@ -253,16 +260,14 @@ export const exportDTRPdf = async (params: {
   const { records, summary } = await getDTRSummary(params);
   const user = records[0]?.user;
 
-  // ── Parse date range ───────────────────────────────────────────────────────
   const [fromY, fromM, fromD] = params.dateFrom.split("-").map(Number);
   const [toY,   toM,   toD]   = params.dateTo.split("-").map(Number);
 
-  // ── Build month segments — always full month (1–31), data shown only within range ──
   type Segment = {
-    year:      number;
-    month:     number;
-    activeFrom: number; // first day with data (inclusive)
-    activeTo:   number; // last day with data (inclusive)
+    year:       number;
+    month:      number;
+    activeFrom: number;
+    activeTo:   number;
   };
   const segments: Segment[] = [];
 
@@ -281,7 +286,6 @@ export const exportDTRPdf = async (params: {
     if (curM > 12) { curM = 1; curY++; }
   }
 
-  // ── Build record map keyed by "YYYY-MM-DD" ─────────────────────────────────
   const recordMap = new Map<string, (typeof records)[0]>();
   for (const r of records) {
     let key: string;
@@ -296,20 +300,17 @@ export const exportDTRPdf = async (params: {
     recordMap.set(key, r);
   }
 
-  // ── Layout constants ───────────────────────────────────────────────────────
   const ROW_H   = 13;
   const HDR_H   = 16;
   const HDR_H2  = 11;
   const TOTAL_R = 14;
-  const ROWS    = 31; // always render 31 rows regardless of month length
+  const ROWS    = 31;
 
-  // Fixed page height based on 31 rows — consistent across all pages
   const PAGE_H = Math.max(
     792,
     105 + HDR_H + HDR_H2 + ROWS * ROW_H + TOTAL_R + 100
   );
 
-  // Pair segments onto pages (2 per page, side by side)
   const pages: Segment[][] = [];
   for (let i = 0; i < segments.length; i += 2) {
     pages.push(segments.slice(i, i + 2));
@@ -330,7 +331,6 @@ export const exportDTRPdf = async (params: {
     doc.on("end",   () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    // ── Draw one form column ─────────────────────────────────────────────────
     const drawForm = (offsetX: number, seg: Segment) => {
       const col = offsetX;
       const cw  = W / 2 - 20;
@@ -353,11 +353,8 @@ export const exportDTRPdf = async (params: {
       // Name
       const nameVal = user ? user.name.toUpperCase() : "________________________";
       doc.font("Helvetica-Bold").fontSize(7.5).fillColor("black");
-      // Center the name text manually without any decoration
-      const nameY = y;
-      doc.text(nameVal, col, nameY, { width: cw, align: "center" });
+      doc.text(nameVal, col, y, { width: cw, align: "center" });
       y += 10;
-      // Draw underline manually below the text
       doc.moveTo(col + 4, y).lineTo(cx - 4, y).lineWidth(0.5).stroke();
       y += 4;
       doc.font("Helvetica").fontSize(6).fillColor("#555555");
@@ -365,28 +362,28 @@ export const exportDTRPdf = async (params: {
       doc.fillColor("black");
       y += 12;
 
-     // Header info
+      // Header info
       const headerRight = col + (W / 2 - 20);
 
-      doc.font("Helvetica").fontSize(6.5).fillColor("black");
-
-      // Row 1: draw full underline first, then text on top
-      const row1y = y;
+      // Row 1 — measure widths with correct fonts before drawing
       doc.font("Helvetica").fontSize(6.5);
       const prefixW = doc.widthOfString("For the month of ");
       doc.font("Helvetica-Bold").fontSize(6.5);
-      const monthW = doc.widthOfString(monthLabel);
-      const lineStart1 = col + 4 + prefixW;
-      // Full underline from after "For the month of" to end
-      doc.moveTo(lineStart1, row1y + 7).lineTo(headerRight - 4, row1y + 7).lineWidth(0.5).stroke();
-      // Text drawn on top
-      doc.font("Helvetica").fontSize(6.5);
-      doc.text("For the month of ", col + 4, row1y, { continued: false });
+      const monthW  = doc.widthOfString(monthLabel);
+
+      // Draw underline first (so text sits on top of it)
+      doc.moveTo(col + 4 + prefixW, y + 7)
+         .lineTo(headerRight - 4, y + 7)
+         .lineWidth(0.5).stroke();
+      // Draw prefix (regular)
+      doc.font("Helvetica").fontSize(6.5).fillColor("black");
+      doc.text("For the month of ", col + 4, y, { continued: false });
+      // Draw month label (bold) at exact x position
       doc.font("Helvetica-Bold").fontSize(6.5);
-      doc.text(monthLabel, col + 4 + prefixW, row1y, { continued: false });
+      doc.text(monthLabel, col + 4 + prefixW, y, { continued: false });
       y += 11;
 
-      doc.font("Helvetica").fontSize(6.5);
+      doc.font("Helvetica").fontSize(6.5).fillColor("black");
       const ohW = doc.widthOfString("Official Hours (Regular Days):");
       doc.moveTo(col + 4 + ohW + 3, y + 7).lineTo(headerRight - 4, y + 7).lineWidth(0.5).stroke();
       doc.text("Official Hours (Regular Days):", col + 4, y, { continued: false });
@@ -475,7 +472,7 @@ export const exportDTRPdf = async (params: {
       doc.text("Min.", cx2, ty + 3, { width: cols.over, align: "center" });
       ty += HDR_H2;
 
-      // ── Data rows — always 31, data only shown within activeFrom..activeTo ──
+      // Data rows
       doc.font("Helvetica").fontSize(6);
       let segTotalHours = 0;
 
@@ -511,11 +508,9 @@ export const exportDTRPdf = async (params: {
         doc.moveTo(cx2 + cols.pmDep, ty).lineTo(cx2 + cols.pmDep, ty + ROW_H).stroke();
         cx2 += cols.pmDep;
 
-        // Undertime (blank — fill manually)
         doc.moveTo(cx2 + cols.under, ty).lineTo(cx2 + cols.under, ty + ROW_H).stroke();
         cx2 += cols.under;
 
-        // Overtime minutes
         const overtimeMins = rec?.hoursWorked && rec.hoursWorked > 8
           ? String(Math.round((rec.hoursWorked - 8) * 60))
           : "";
@@ -570,19 +565,18 @@ export const exportDTRPdf = async (params: {
       doc.fillColor("black");
     };
 
-    // ── Render each page ─────────────────────────────────────────────────────
+    // Render pages
     pages.forEach((pair) => {
       doc.addPage({ size: [W, PAGE_H], margin: 0 });
 
-      // Left form
       drawForm(10, pair[0]);
 
-      // Dashed center divider
       doc.moveTo(W / 2, 30).lineTo(W / 2, PAGE_H - 30)
          .lineWidth(0.5).dash(3, { space: 3 }).stroke().undash();
 
-      // Right form — second segment if available, otherwise duplicate left
-      drawForm(W / 2 + 10, pair[1] ?? pair[0]);
+      if (pair[1]) {
+        drawForm(W / 2 + 10, pair[1]);
+      }
     });
 
     doc.end();
