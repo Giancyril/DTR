@@ -7,7 +7,11 @@ import { toast } from "react-toastify";
 import { FaPlus, FaTimes, FaTrash, FaFilter, FaClock, FaCalendarAlt, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import type { AttendanceRecord, User } from "../../types/types";
 
-const fmt     = (d: string | null | undefined) => d ? new Date(d).toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" }) : "—";
+const fmt = (d: string | null | undefined) => {
+  if (!d) return "—";
+  return new Date(d).toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Manila" });
+};
+
 const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
 const toISO   = (d: Date)   => d.toISOString().split("T")[0];
 
@@ -21,9 +25,9 @@ function DatePicker({
   onChange: (val: string) => void;
   placeholder?: string;
 }) {
-  const [open,        setOpen]        = useState(false);
-  const [viewYear,    setViewYear]    = useState(() => value ? new Date(value).getFullYear() : new Date().getFullYear());
-  const [viewMonth,   setViewMonth]   = useState(() => value ? new Date(value).getMonth()    : new Date().getMonth());
+  const [open,      setOpen]      = useState(false);
+  const [viewYear,  setViewYear]  = useState(() => value ? new Date(value).getFullYear() : new Date().getFullYear());
+  const [viewMonth, setViewMonth] = useState(() => value ? new Date(value).getMonth()    : new Date().getMonth());
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -38,14 +42,14 @@ function DatePicker({
   const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   const DAYS   = ["Su","Mo","Tu","We","Th","Fr","Sa"];
 
-  const firstDay  = new Date(viewYear, viewMonth, 1).getDay();
+  const firstDay    = new Date(viewYear, viewMonth, 1).getDay();
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const cells: (number | null)[] = [
     ...Array(firstDay).fill(null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
 
-  const selected = value ? new Date(value + "T00:00:00") : null;
+  const selected   = value ? new Date(value + "T00:00:00") : null;
   const isSelected = (day: number) =>
     selected &&
     selected.getFullYear() === viewYear &&
@@ -82,10 +86,10 @@ function DatePicker({
         className={`w-full flex items-center gap-2 px-3 py-2 bg-gray-800 border border-white/8 rounded-xl cursor-pointer select-none transition-all ring-2 ${open ? "ring-blue-500/30" : "ring-transparent"} ${value ? "text-white" : "text-gray-500"}`}
       >
         <FaCalendarAlt size={11} className={value ? "text-blue-400" : "text-gray-600"} />
-        <span className="text-xs font-medium flex-1">{display}</span>
+        <span className="text-xs font-medium flex-1 truncate whitespace-nowrap">{display}</span>
         {value && (
           <span role="button" onClick={e => { e.stopPropagation(); onChange(""); }}
-            className="text-gray-600 hover:text-gray-400 transition-colors cursor-pointer">
+            className="text-gray-600 hover:text-gray-400 transition-colors cursor-pointer shrink-0">
             <FaTimes size={9} />
           </span>
         )}
@@ -113,9 +117,7 @@ function DatePicker({
             <div className="grid grid-cols-7 gap-0.5">
               {cells.map((day, i) => (
                 <div key={i}>
-                  {day === null ? (
-                    <div />
-                  ) : (
+                  {day === null ? <div /> : (
                     <button type="button" onClick={() => pick(day)}
                       className={`w-full aspect-square rounded-lg text-xs font-semibold transition-all ${
                         isSelected(day)
@@ -208,15 +210,15 @@ function TimePicker({
     <div ref={ref} className="relative">
       <div
         onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-gray-800 border border-white/8 rounded-xl text-sm cursor-pointer select-none transition-all ring-2 ${open ? accent.ring : "ring-transparent"} ${value ? "text-white" : "text-gray-500"}`}
+        className={`w-full flex items-center justify-between gap-2 px-3 py-2 bg-gray-800 border border-white/8 rounded-xl cursor-pointer select-none transition-all ring-2 ${open ? accent.ring : "ring-transparent"} ${value ? "text-white" : "text-gray-500"}`}
       >
         <div className="flex items-center gap-2 pointer-events-none">
           <FaClock size={11} className={value ? accent.col : "text-gray-600"} />
-          <span className="font-medium tracking-wide">{display}</span>
+          <span className="text-xs font-medium tracking-wide">{display}</span>
         </div>
         {value && (
           <span role="button" onClick={e => { e.stopPropagation(); onChange(""); }}
-            className="text-gray-600 hover:text-gray-400 transition-colors cursor-pointer">
+            className="text-gray-600 hover:text-gray-400 transition-colors cursor-pointer shrink-0">
             <FaTimes size={9} />
           </span>
         )}
@@ -503,10 +505,10 @@ function ManualEntryModal({ users, onClose }: { users: User[]; onClose: () => vo
         date:      form.date,
         status:    form.status,
         remarks:   form.remarks || undefined,
-        amTimeIn:  form.amTimeIn  ? `${form.date}T${form.amTimeIn}`  : undefined,
-        amTimeOut: form.amTimeOut ? `${form.date}T${form.amTimeOut}` : undefined,
-        pmTimeIn:  form.pmTimeIn  ? `${form.date}T${form.pmTimeIn}`  : undefined,
-        pmTimeOut: form.pmTimeOut ? `${form.date}T${form.pmTimeOut}` : undefined,
+        amTimeIn:  form.amTimeIn  ? `${form.date}T${form.amTimeIn}:00+08:00`  : undefined,
+        amTimeOut: form.amTimeOut ? `${form.date}T${form.amTimeOut}:00+08:00` : undefined,
+        pmTimeIn:  form.pmTimeIn  ? `${form.date}T${form.pmTimeIn}:00+08:00`  : undefined,
+        pmTimeOut: form.pmTimeOut ? `${form.date}T${form.pmTimeOut}:00+08:00` : undefined,
       }).unwrap();
       toast.success("Attendance recorded");
       onClose();
@@ -515,7 +517,6 @@ function ManualEntryModal({ users, onClose }: { users: User[]; onClose: () => vo
     }
   };
 
-  // ← fixed: text-xs instead of text-sm
   const selectCls = "w-full px-3 py-2 bg-gray-800 border border-white/8 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30 appearance-none";
   const labelCls  = "block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5";
 

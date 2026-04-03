@@ -95,11 +95,17 @@ export const updateProfile = async (id: string, body: { name?: string; email?: s
     if (existing) throw new Error("Email already in use");
   }
 
-  return prisma.user.update({
+  const updated = await prisma.user.update({
     where: { id },
     data: { ...body },
-    select: {
-      id: true, name: true, email: true, role: true,
-    },
+    select: { id: true, name: true, email: true, role: true },
   });
+
+  const token = jwt.sign(
+    { id: updated.id, name: updated.name, email: updated.email, role: updated.role },
+    process.env.JWT_SECRET!,
+    { expiresIn: "7d" }
+  );
+
+  return { ...updated, token };
 };

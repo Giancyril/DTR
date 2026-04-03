@@ -8,7 +8,7 @@ const calcHours = (timeIn: Date, timeOut: Date): number => {
 
 const startOfDay = (date: Date) => {
   const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
+  d.setUTCHours(0, 0, 0, 0);
   return d;
 };
 

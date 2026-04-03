@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useChangePasswordMutation, useUpdateProfileMutation } from "../../redux/api/api";
-import { useUser } from "../../auth/auth";
+import { useUser, setToken } from "../../auth/auth";
 import { toast } from "react-toastify";
 import { FaLock, FaUser, FaEnvelope } from "react-icons/fa";
 
@@ -26,6 +26,7 @@ export default function SettingsPage() {
       toast.error("New passwords do not match");
       return;
     }
+    if (!confirm("Are you sure you want to change your password?")) return;
     try {
       await changePassword({
         currentPassword: passwordForm.currentPassword,
@@ -74,8 +75,10 @@ export default function SettingsPage() {
         <form
           onSubmit={async (e) => {
             e.preventDefault();
+            if (!confirm("Update your display name?")) return;
             try {
-              await updateName({ name: nameForm.name }).unwrap();
+              const res: any = await updateName({ name: nameForm.name }).unwrap();
+              if (res?.token) setToken(res.token);
               toast.success("Name updated successfully");
             } catch (err: any) {
               toast.error(err?.data?.message ?? "Failed to update name");
@@ -96,11 +99,8 @@ export default function SettingsPage() {
               />
             </div>
           </div>
-          <button
-            type="submit"
-            disabled={updatingName}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all mt-1"
-          >
+          <button type="submit" disabled={updatingName}
+            className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all mt-1">
             {updatingName ? "Saving..." : "Save Name"}
           </button>
         </form>
@@ -115,8 +115,10 @@ export default function SettingsPage() {
         <form
           onSubmit={async (e) => {
             e.preventDefault();
+            if (!confirm("Update your email address?")) return;
             try {
-              await updateEmail({ email: emailForm.email }).unwrap();
+              const res: any = await updateEmail({ email: emailForm.email }).unwrap();
+              if (res?.token) setToken(res.token);
               toast.success("Email updated successfully");
             } catch (err: any) {
               toast.error(err?.data?.message ?? "Failed to update email");
@@ -137,11 +139,8 @@ export default function SettingsPage() {
               />
             </div>
           </div>
-          <button
-            type="submit"
-            disabled={updatingEmail}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all mt-1"
-          >
+          <button type="submit" disabled={updatingEmail}
+            className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all mt-1">
             {updatingEmail ? "Saving..." : "Save Email"}
           </button>
         </form>
@@ -170,11 +169,8 @@ export default function SettingsPage() {
               />
             </div>
           ))}
-          <button
-            type="submit"
-            disabled={changingPassword}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all mt-1"
-          >
+          <button type="submit" disabled={changingPassword}
+            className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all mt-1">
             {changingPassword ? "Changing..." : "Change Password"}
           </button>
         </form>

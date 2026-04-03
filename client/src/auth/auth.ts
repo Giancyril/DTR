@@ -2,23 +2,44 @@ import { jwtDecode } from "jwt-decode";
 import { useEffect, useState } from "react";
 import type { DecodedToken } from "../types/types";
 
-const TOKEN_KEY = "dtr_token";
+const TOKEN_KEY   = "dtr_token";
+const TOKEN_EVENT = "dtr_token_updated";
 
-export const setToken  = (token: string) => localStorage.setItem(TOKEN_KEY, token);
-export const getToken  = ()              => localStorage.getItem(TOKEN_KEY);
-export const removeToken = ()            => localStorage.removeItem(TOKEN_KEY);
+export const setToken = (token: string) => {
+  localStorage.setItem(TOKEN_KEY, token);
+  window.dispatchEvent(new Event(TOKEN_EVENT));
+};
+
+export const getToken = () => localStorage.getItem(TOKEN_KEY);
+
+export const removeToken = () => {
+  localStorage.removeItem(TOKEN_KEY);
+  window.dispatchEvent(new Event(TOKEN_EVENT));
+};
 
 export const decodeToken = (token: string): DecodedToken => jwtDecode(token);
 
 export const useUser = () => {
-  const [user, setUser] = useState<DecodedToken | null>(null);
-  useEffect(() => {
+  const [user, setUser] = useState<DecodedToken | null>(() => {
     const token = getToken();
-    if (token) {
-      try { setUser(decodeToken(token)); }
-      catch { removeToken(); }
-    }
+    if (!token) return null;
+    try { return decodeToken(token); } catch { return null; }
+  });
+
+  useEffect(() => {
+    const refresh = () => {
+      const token = getToken();
+      if (token) {
+        try { setUser(decodeToken(token)); }
+        catch { removeToken(); setUser(null); }
+      } else {
+        setUser(null);
+      }
+    };
+    window.addEventListener(TOKEN_EVENT, refresh);
+    return () => window.removeEventListener(TOKEN_EVENT, refresh);
   }, []);
+
   return user;
 };
 
