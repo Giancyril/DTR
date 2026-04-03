@@ -352,30 +352,54 @@ export const exportDTRPdf = async (params: {
 
       // Name
       const nameVal = user ? user.name.toUpperCase() : "________________________";
-      doc.font("Helvetica-Bold").fontSize(7.5);
-      doc.text(nameVal, col, y, { width: cw, align: "center" });
-      y += 3;
+      doc.font("Helvetica-Bold").fontSize(7.5).fillColor("black");
+      // Center the name text manually without any decoration
+      const nameY = y;
+      doc.text(nameVal, col, nameY, { width: cw, align: "center" });
+      y += 10;
+      // Draw underline manually below the text
       doc.moveTo(col + 4, y).lineTo(cx - 4, y).lineWidth(0.5).stroke();
-      y += 3;
+      y += 4;
       doc.font("Helvetica").fontSize(6).fillColor("#555555");
       doc.text("Name", col, y, { width: cw, align: "center" });
       doc.fillColor("black");
-      y += 14;
+      y += 12;
 
-      // Header info
+     // Header info
+      const headerRight = col + (W / 2 - 20);
+
+      doc.font("Helvetica").fontSize(6.5).fillColor("black");
+
+      // Row 1: draw full underline first, then text on top
+      const row1y = y;
       doc.font("Helvetica").fontSize(6.5);
-      doc.text("For the month of ", col + 4, y, { continued: true })
-         .font("Helvetica-Bold").text(monthLabel, { continued: true })
-         .font("Helvetica").text("_".repeat(6));
+      const prefixW = doc.widthOfString("For the month of ");
+      doc.font("Helvetica-Bold").fontSize(6.5);
+      const monthW = doc.widthOfString(monthLabel);
+      const lineStart1 = col + 4 + prefixW;
+      // Full underline from after "For the month of" to end
+      doc.moveTo(lineStart1, row1y + 7).lineTo(headerRight - 4, row1y + 7).lineWidth(0.5).stroke();
+      // Text drawn on top
+      doc.font("Helvetica").fontSize(6.5);
+      doc.text("For the month of ", col + 4, row1y, { continued: false });
+      doc.font("Helvetica-Bold").fontSize(6.5);
+      doc.text(monthLabel, col + 4 + prefixW, row1y, { continued: false });
+      y += 11;
+
+      doc.font("Helvetica").fontSize(6.5);
+      const ohW = doc.widthOfString("Official Hours (Regular Days):");
+      doc.moveTo(col + 4 + ohW + 3, y + 7).lineTo(headerRight - 4, y + 7).lineWidth(0.5).stroke();
+      doc.text("Official Hours (Regular Days):", col + 4, y, { continued: false });
       y += 10;
-      doc.text("Office Hours (regular days) ", col + 4, y, { continued: true })
-         .text("_".repeat(18));
-      y += 9;
-      doc.text("Arrival & Departure: ", col + 4, y, { continued: true })
-         .text("_".repeat(22));
-      y += 9;
-      doc.text("Saturdays: ", col + 4, y, { continued: true })
-         .text("_".repeat(28));
+
+      const adW = doc.widthOfString("Arrival & Departure:");
+      doc.moveTo(col + 4 + adW + 3, y + 7).lineTo(headerRight - 4, y + 7).stroke();
+      doc.text("Arrival & Departure:", col + 4, y, { continued: false });
+      y += 10;
+
+      const satW = doc.widthOfString("Saturdays:");
+      doc.moveTo(col + 4 + satW + 3, y + 7).lineTo(headerRight - 4, y + 7).stroke();
+      doc.text("Saturdays:", col + 4, y, { continued: false });
       y += 14;
 
       // Table setup
