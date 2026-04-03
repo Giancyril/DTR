@@ -186,7 +186,7 @@ export const getDTRSummary = async (params: {
 
   const records = await prisma.attendanceRecord.findMany({
     where,
-    orderBy: { date: "asc" },
+    orderBy: { date: "desc" },
     include: { user: { select: { id: true, name: true, department: true, position: true } } },
   });
 
