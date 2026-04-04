@@ -101,41 +101,59 @@ function computeStreak(records: AttendanceRecord[]) {
 }
 
 // ── Heatmap Calendar ──────────────────────────────────────────────────────────
-function HeatmapCalendar({ records, currentStreak, bestStreak, showStreaks = true }: {
+function HeatmapCalendar({ 
+  records, currentStreak, bestStreak, showStreaks = true,
+  selectedMonth, setSelectedMonth, selectedYear, setSelectedYear 
+}: {
   records: AttendanceRecord[];
   currentStreak: number;
   bestStreak: number;
   showStreaks?: boolean;
+  selectedMonth: number;
+  setSelectedMonth: (m: number) => void;
+  selectedYear: number;
+  setSelectedYear: (y: number) => void;
 }) {
   const recordMap = new Map(records.map(r => [r.date.split("T")[0], r.status]));
   const today    = new Date();
   const todayISO = toISO(today);
 
-  // 52 weeks ending today
-  const startDate = new Date(today);
-  startDate.setDate(today.getDate() - today.getDay() - 51 * 7);
+  // Generate weeks for the selected month
+  const startOfMonth = new Date(selectedYear, selectedMonth, 1);
+  const endOfMonth   = new Date(selectedYear, selectedMonth + 1, 0);
+
+  const gridStart = new Date(startOfMonth);
+  gridStart.setDate(gridStart.getDate() - gridStart.getDay());
+
+  const gridEnd = new Date(endOfMonth);
+  gridEnd.setDate(gridEnd.getDate() + (6 - gridEnd.getDay()));
+
   const weeks: { date: string; status?: string }[][] = [];
-  const cur = new Date(startDate);
-  for (let w = 0; w < 52; w++) {
+  const tempCur = new Date(gridStart);
+  while (tempCur <= gridEnd) {
     const week: { date: string; status?: string }[] = [];
     for (let d = 0; d < 7; d++) {
-      const iso = toISO(cur);
+      const iso = toISO(tempCur);
       week.push({ date: iso, status: recordMap.get(iso) });
-      cur.setDate(cur.getDate() + 1);
+      tempCur.setDate(tempCur.getDate() + 1);
     }
     weeks.push(week);
   }
 
   const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const MONTHS = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
 
   const cellColor = (status?: string, date?: string) => {
     if (date && date > todayISO) return "bg-transparent";
     if (!status) return "bg-white/5";
     return ({
-      PRESENT:  "bg-blue-500/80",
-      LATE:     "bg-amber-500/80",
-      ABSENT:   "bg-red-500/50",
-      HALF_DAY: "bg-purple-500/80",
+      PRESENT:  "bg-blue-600/90",
+      LATE:     "bg-amber-600/90",
+      ABSENT:   "bg-red-700/50",
+      HALF_DAY: "bg-purple-600/90",
     } as Record<string, string>)[status] ?? "bg-white/5";
   };
 
@@ -145,7 +163,7 @@ function HeatmapCalendar({ records, currentStreak, bestStreak, showStreaks = tru
   const absentCount  = allRecords.filter(r => r.status === "ABSENT").length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Streak cards — only for employee view */}
       {showStreaks && (
         <div className="grid grid-cols-2 gap-3">
@@ -171,38 +189,37 @@ function HeatmapCalendar({ records, currentStreak, bestStreak, showStreaks = tru
       )}
 
       {/* Grid */}
-      <div className="flex items-start gap-2">
-        <div className="flex flex-col shrink-0 pt-5 gap-0">
-          {DAY_LABELS.map((d, i) => (
-            <div key={d} style={{ height: "14px" }}
-              className={`text-[9px] text-gray-600 flex items-center ${i % 2 !== 0 ? "invisible" : ""}`}>
-              {d}
-            </div>
-          ))}
-        </div>
-        <div className="flex-1 min-w-0">
-          {/* Month labels */}
-          <div className="flex mb-1">
-            {weeks.map((week, i) => {
-              const d = new Date(week[0].date);
-              const label = d.getDate() <= 7 ? d.toLocaleDateString("en-PH", { month: "short" }) : "";
-              return (
-                <div key={i} className="flex-1 text-[9px] text-gray-600 text-center truncate">{label}</div>
-              );
-            })}
-          </div>
-          {/* Week columns */}
-          <div className="flex gap-[2px]">
-            {weeks.map((week, wi) => (
-              <div key={wi} className="flex-1 flex flex-col gap-[2px]">
-                {week.map(({ date, status }) => (
-                  <div key={date}
-                    title={`${date}${status ? ` — ${status.replace("_", " ")}` : " — No record"}`}
-                    className={`w-full aspect-square rounded-[2px] ${cellColor(status, date)} transition-opacity hover:opacity-70`}
-                  />
-                ))}
+      <div className="bg-gray-800/30 border border-white/5 rounded-2xl p-4 sm:p-6">
+        <div className="flex items-start gap-4">
+          <div className="flex flex-col shrink-0 pt-2 gap-0">
+            {DAY_LABELS.map((d, i) => (
+              <div key={d} style={{ height: "40px" }}
+                className={`text-[11px] text-gray-500 flex items-center ${i % 2 !== 0 ? "invisible sm:visible sm:text-gray-600" : ""}`}>
+                {d}
               </div>
             ))}
+          </div>
+          <div className="flex-1">
+            <div className="flex gap-2">
+              {weeks.map((week, wi) => (
+                <div key={wi} className="flex-1 flex flex-col gap-2">
+                  {week.map(({ date, status }) => {
+                    const d = new Date(date);
+                    const isNextMonth = d.getMonth() !== selectedMonth;
+                    return (
+                      <div key={date}
+                        title={`${date}${status ? ` — ${status.replace("_", " ")}` : " — No record"}`}
+                        style={{ height: "40px" }}
+                        className={`w-full rounded-lg ${cellColor(status, date)} transition-all hover:scale-105 hover:z-10 cursor-help relative group ${isNextMonth ? "opacity-20 pointer-events-none" : ""}`}
+                      >
+                        <span className="absolute top-1 left-1.5 text-[8px] text-white/30 font-mono">{d.getDate()}</span>
+                        <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 rounded-lg transition-opacity" />
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -222,20 +239,53 @@ function HeatmapCalendar({ records, currentStreak, bestStreak, showStreaks = tru
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center justify-center gap-x-2 sm:gap-x-8 gap-y-2 flex-wrap px-1">
         {[
-          { label: "Present",   color: "bg-blue-500/80" },
-          { label: "Late",      color: "bg-amber-500/80"   },
-          { label: "Absent",    color: "bg-red-500/50"     },
-          { label: "Half day",  color: "bg-purple-500/80"  },
+          { label: "Present",   color: "bg-blue-600/90" },
+          { label: "Late",      color: "bg-amber-600/90"   },
+          { label: "Absent",    color: "bg-red-700/50"     },
+          { label: "Half day",  color: "bg-purple-600/90"  },
           { label: "No record", color: "bg-white/5"        },
         ].map(({ label, color }) => (
-          <div key={label} className="flex items-center gap-1.5">
-            <div className={`w-2.5 h-2.5 rounded-[2px] ${color}`} />
-            <span className="text-[9px] text-gray-500">{label}</span>
+          <div key={label} className="flex items-center gap-1">
+            <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-[2px] sm:rounded-[3px] ${color}`} />
+            <span className="text-[8px] sm:text-[10px] text-gray-500 font-medium whitespace-nowrap">{label}</span>
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ── Helper: Month & Year Selectors ───────────────────────────────────────────
+function DatePicker({ month, setMonth, year, setYear }: { 
+  month: number; setMonth: (m: number) => void; 
+  year: number; setYear: (y: number) => void;
+}) {
+  const MONTHS = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+  return (
+    <div className="flex items-center gap-2 shrink-0">
+      <select
+        value={month}
+        onChange={(e) => setMonth(parseInt(e.target.value))}
+        className="bg-gray-800 border border-white/10 rounded-lg pl-2 pr-7 py-1.5 text-[11px] sm:text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500/40 cursor-pointer appearance-none min-w-[85px] sm:min-w-[110px]"
+      >
+        {MONTHS.map((m, i) => (
+          <option key={m} value={i}>{m}</option>
+        ))}
+      </select>
+      <select
+        value={year}
+        onChange={(e) => setYear(parseInt(e.target.value))}
+        className="bg-gray-800 border border-white/10 rounded-lg pl-2 pr-7 py-1.5 text-[11px] sm:text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500/40 cursor-pointer appearance-none min-w-[60px] sm:min-w-[80px]"
+      >
+        {[2024, 2025, 2026].map(y => (
+          <option key={y} value={y}>{y}</option>
+        ))}
+      </select>
     </div>
   );
 }
@@ -246,6 +296,8 @@ function AdminHeatmapPanel() {
   const users = ((usersData?.data as User[]) ?? []).filter(u => u.role === "EMPLOYEE");
 
   const [selectedId, setSelectedId] = useState<string>("");
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   const yearAgo = toISO(new Date(Date.now() - 365 * 24 * 60 * 60 * 1000));
   const today   = toISO(new Date());
@@ -260,27 +312,30 @@ function AdminHeatmapPanel() {
   const selectedUser = users.find(u => u.id === selectedId);
 
   return (
-    <div className="bg-gray-900 border border-white/5 rounded-2xl p-5 space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Employee Attendance Heatmap</h2>
+    <div className="bg-gray-900 border border-white/5 rounded-2xl p-4 sm:p-5 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
+          <h2 className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest truncate">Employee Attendance Heatmap</h2>
           {selectedUser && (
-            <p className="text-gray-500 text-[10px] mt-0.5">{selectedUser.name}</p>
+            <p className="text-gray-500 text-[10px] mt-0.5 font-medium truncate">{selectedUser.name}</p>
           )}
         </div>
-        {/* Employee dropdown */}
-        <div className="relative">
-          <select
-            value={selectedId}
-            onChange={e => setSelectedId(e.target.value)}
-            className="appearance-none pl-3 pr-8 py-2 bg-gray-800 border border-white/8 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30 cursor-pointer"
-          >
-            <option value="">Select employee</option>
-            {users.map(u => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
-          <FaChevronDown size={9} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+        <div className="flex items-center gap-2 justify-end w-full sm:w-auto">
+          {/* Employee dropdown */}
+          <div className="relative flex-1 sm:flex-none">
+            <select
+              value={selectedId}
+              onChange={e => setSelectedId(e.target.value)}
+              className="appearance-none pl-2.5 pr-8 py-1.5 bg-gray-800 border border-white/10 rounded-lg text-white text-[11px] sm:text-xs focus:outline-none focus:ring-1 focus:ring-blue-500/40 cursor-pointer w-full sm:w-[180px] truncate"
+            >
+              <option value="">Select Employee</option>
+              {users.map(u => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
+            <FaChevronDown size={8} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+          </div>
+          <DatePicker month={selectedMonth} setMonth={setSelectedMonth} year={selectedYear} setYear={setSelectedYear} />
         </div>
       </div>
 
@@ -301,6 +356,10 @@ function AdminHeatmapPanel() {
           currentStreak={current}
           bestStreak={best}
           showStreaks={true}
+          selectedMonth={selectedMonth}
+          setSelectedMonth={setSelectedMonth}
+          selectedYear={selectedYear}
+          setSelectedYear={setSelectedYear}
         />
       )}
     </div>
@@ -311,6 +370,9 @@ function AdminHeatmapPanel() {
 export default function OverviewPage() {
   const user  = useUser();
   const admin = user?.role === "ADMIN";
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear,  setSelectedYear]  = useState(new Date().getFullYear());
+
   const today = toISO(new Date());
 
   const yearAgo = toISO(new Date(Date.now() - 365 * 24 * 60 * 60 * 1000));
@@ -414,16 +476,22 @@ export default function OverviewPage() {
 
       {/* Employee heatmap */}
       {!admin && (
-        <div className="bg-gray-900 border border-white/5 rounded-2xl p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Attendance Overview</h2>
-            <span className="text-[10px] text-gray-600">Last 52 weeks</span>
+        <div className="bg-gray-900 border border-white/5 rounded-2xl p-4 sm:p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+            <h2 className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest truncate">My Attendance Heatmap</h2>
+            <div className="flex items-center justify-end w-full sm:w-auto">
+              <DatePicker month={selectedMonth} setMonth={setSelectedMonth} year={selectedYear} setYear={setSelectedYear} />
+            </div>
           </div>
           <HeatmapCalendar
             records={historyRecords}
             currentStreak={currentStreak}
             bestStreak={bestStreak}
             showStreaks={true}
+            selectedMonth={selectedMonth}
+            setSelectedMonth={setSelectedMonth}
+            selectedYear={selectedYear}
+            setSelectedYear={setSelectedYear}
           />
         </div>
       )}
