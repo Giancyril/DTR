@@ -36,3 +36,19 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #4b5563;
 }
+
+.Toastify__toast-container--top-right {
+  top: 1rem !important;
+  right: 1rem !important;
+  left: auto !important;
+}
+
+@media (max-width: 768px) {
+  .Toastify__toast-container {
+    width: 90% !important;
+    top: 1rem !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+  }
+}

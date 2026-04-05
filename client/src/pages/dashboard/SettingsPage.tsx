@@ -3,40 +3,98 @@ import { useChangePasswordMutation, useUpdateProfileMutation } from "../../redux
 import { useUser, setToken } from "../../auth/auth";
 import { toast } from "react-toastify";
 import { FaLock, FaUser, FaEnvelope } from "react-icons/fa";
+import ConfirmDialog from "../../components/ConfirmDialog";
 
 export default function SettingsPage() {
   const user = useUser();
 
-  const [changePassword,  { isLoading: changingPassword }] = useChangePasswordMutation();
-  const [updateName,      { isLoading: updatingName     }] = useUpdateProfileMutation();
-  const [updateEmail,     { isLoading: updatingEmail    }] = useUpdateProfileMutation();
+  const [changePassword, { isLoading: changingPassword }] = useChangePasswordMutation();
+  const [updateName,     { isLoading: updatingName     }] = useUpdateProfileMutation();
+  const [updateEmail,    { isLoading: updatingEmail    }] = useUpdateProfileMutation();
 
   const [nameForm,  setNameForm]  = useState({ name:  user?.name  ?? "" });
   const [emailForm, setEmailForm] = useState({ email: user?.email ?? "" });
-
   const [passwordForm, setPasswordForm] = useState({
-    currentPassword: "",
-    newPassword:     "",
-    confirmPassword: "",
+    currentPassword: "", newPassword: "", confirmPassword: "",
   });
 
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
+  // ── Confirm dialog state ──────────────────────────────────────────────────
+  const [confirmState, setConfirmState] = useState<{
+    isOpen:   boolean;
+    title:    string;
+    message:  string;
+    variant:  "danger" | "warning" | "info";
+    onConfirm: () => void;
+  }>({ isOpen: false, title: "", message: "", variant: "info", onConfirm: () => {} });
+
+  const openConfirm = (opts: Omit<typeof confirmState, "isOpen">) =>
+    setConfirmState({ ...opts, isOpen: true });
+  const closeConfirm = () =>
+    setConfirmState(s => ({ ...s, isOpen: false }));
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  const handleNameSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    openConfirm({
+      title:   "Update Display Name",
+      message: `Change your name to "${nameForm.name}"?`,
+      variant: "info",
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          const res: any = await updateName({ name: nameForm.name }).unwrap();
+          if (res?.token) setToken(res.token);
+          toast.success("Name updated successfully");
+        } catch (err: any) {
+          toast.error(err?.data?.message ?? "Failed to update name");
+        }
+      },
+    });
+  };
+
+  const handleEmailSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    openConfirm({
+      title:   "Update Email Address",
+      message: `Change your email to "${emailForm.email}"?`,
+      variant: "info",
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          const res: any = await updateEmail({ email: emailForm.email }).unwrap();
+          if (res?.token) setToken(res.token);
+          toast.success("Email updated successfully");
+        } catch (err: any) {
+          toast.error(err?.data?.message ?? "Failed to update email");
+        }
+      },
+    });
+  };
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       toast.error("New passwords do not match");
       return;
     }
-    if (!confirm("Are you sure you want to change your password?")) return;
-    try {
-      await changePassword({
-        currentPassword: passwordForm.currentPassword,
-        newPassword:     passwordForm.newPassword,
-      }).unwrap();
-      toast.success("Password changed successfully");
-      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    } catch (err: any) {
-      toast.error(err?.data?.message ?? "Failed to change password");
-    }
+    openConfirm({
+      title:   "Change Password",
+      message: "Are you sure you want to change your password?",
+      variant: "warning",
+      onConfirm: async () => {
+        closeConfirm();
+        try {
+          await changePassword({
+            currentPassword: passwordForm.currentPassword,
+            newPassword:     passwordForm.newPassword,
+          }).unwrap();
+          toast.success("Password changed successfully");
+          setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+        } catch (err: any) {
+          toast.error(err?.data?.message ?? "Failed to change password");
+        }
+      },
+    });
   };
 
   const inputCls = "w-full px-4 py-2.5 bg-gray-800 border border-white/8 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30";
@@ -72,31 +130,12 @@ export default function SettingsPage() {
           <FaUser size={10} className="text-gray-500" />
           <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Edit Name</h2>
         </div>
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (!confirm("Update your display name?")) return;
-            try {
-              const res: any = await updateName({ name: nameForm.name }).unwrap();
-              if (res?.token) setToken(res.token);
-              toast.success("Name updated successfully");
-            } catch (err: any) {
-              toast.error(err?.data?.message ?? "Failed to update name");
-            }
-          }}
-          className="p-5 space-y-3.5"
-        >
+        <form onSubmit={handleNameSubmit} className="p-5 space-y-3.5">
           <div>
             <label className={labelCls}>Full Name</label>
             <div className="relative">
               <FaUser size={10} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-              <input
-                type="text"
-                required
-                value={nameForm.name}
-                onChange={e => setNameForm({ name: e.target.value })}
-                className={inputCls + " pl-9"}
-              />
+              <input type="text" required value={nameForm.name} onChange={e => setNameForm({ name: e.target.value })} className={inputCls + " pl-9"} />
             </div>
           </div>
           <button type="submit" disabled={updatingName}
@@ -112,31 +151,12 @@ export default function SettingsPage() {
           <FaEnvelope size={10} className="text-gray-500" />
           <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Edit Email</h2>
         </div>
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (!confirm("Update your email address?")) return;
-            try {
-              const res: any = await updateEmail({ email: emailForm.email }).unwrap();
-              if (res?.token) setToken(res.token);
-              toast.success("Email updated successfully");
-            } catch (err: any) {
-              toast.error(err?.data?.message ?? "Failed to update email");
-            }
-          }}
-          className="p-5 space-y-3.5"
-        >
+        <form onSubmit={handleEmailSubmit} className="p-5 space-y-3.5">
           <div>
             <label className={labelCls}>Email Address</label>
             <div className="relative">
               <FaEnvelope size={10} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-              <input
-                type="email"
-                required
-                value={emailForm.email}
-                onChange={e => setEmailForm({ email: e.target.value })}
-                className={inputCls + " pl-9"}
-              />
+              <input type="email" required value={emailForm.email} onChange={e => setEmailForm({ email: e.target.value })} className={inputCls + " pl-9"} />
             </div>
           </div>
           <button type="submit" disabled={updatingEmail}
@@ -160,13 +180,9 @@ export default function SettingsPage() {
           ].map(({ label, key }) => (
             <div key={key}>
               <label className={labelCls}>{label}</label>
-              <input
-                type="password"
-                required
-                value={(passwordForm as any)[key]}
+              <input type="password" required value={(passwordForm as any)[key]}
                 onChange={e => setPasswordForm(f => ({ ...f, [key]: e.target.value }))}
-                className={inputCls}
-              />
+                className={inputCls} />
             </div>
           ))}
           <button type="submit" disabled={changingPassword}
@@ -175,6 +191,17 @@ export default function SettingsPage() {
           </button>
         </form>
       </div>
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        variant={confirmState.variant}
+        confirmText="Confirm"
+        onConfirm={confirmState.onConfirm}
+        onCancel={closeConfirm}
+      />
     </div>
   );
 }

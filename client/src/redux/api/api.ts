@@ -69,6 +69,10 @@ const api = baseApi.injectEndpoints({
       query: () => "/attendance/stats",
       providesTags: ["stats"],
     }),
+    updateAttendance: build.mutation({
+      query: ({ id, ...body }) => ({ url: `/attendance/${id}`, method: "PUT", body }),
+      invalidatesTags: ["attendance", "stats"],
+    }),
     getDTRSummary: build.query({
       query: (params: { userId: string; dateFrom: string; dateTo: string }) => ({
         url: "/attendance/dtr",
@@ -101,4 +105,5 @@ export const {
   useDeleteAttendanceMutation,
   useUpdateProfileMutation,
   useExportDTRMutation,
+  useUpdateAttendanceMutation,
 } = api;

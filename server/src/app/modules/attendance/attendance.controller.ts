@@ -86,6 +86,15 @@ export const getStats = async (_req: Request, res: Response) => {
   }
 };
 
+export const updateRecord = async (req: Request, res: Response) => {
+  try {
+    const data = await service.updateRecord(req.params.id, req.body);
+    res.json({ success: true, data });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
 // POST /attendance/export-dtr
 // Returns { base64: string } so Redux never handles a non-serializable Blob
 export const exportDTR = async (req: Request, res: Response) => {

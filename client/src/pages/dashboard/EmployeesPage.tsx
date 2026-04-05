@@ -3,6 +3,7 @@ import { useGetUsersQuery, useRegisterMutation, useDeleteUserMutation, useUpdate
 import { toast } from "react-toastify";
 import { FaPlus, FaTimes, FaTrash, FaEdit, FaClock } from "react-icons/fa";
 import type { User } from "../../types/types";
+import ConfirmDialog from "../../components/ConfirmDialog";
 
 // ── Custom Time Picker ────────────────────────────────────────────────────────
 function TimePicker({
@@ -131,22 +132,25 @@ function TimePicker({
 
 // ── Employees Page ────────────────────────────────────────────────────────────
 export default function EmployeesPage() {
-  const [showAdd, setShowAdd] = useState(false);
-  const [editing, setEditing] = useState<User | null>(null);
+  const [showAdd,       setShowAdd]       = useState(false);
+  const [editing,       setEditing]       = useState<User | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<User | null>(null);
 
   const { data, isLoading } = useGetUsersQuery(undefined);
-  const [deleteUser] = useDeleteUserMutation();
+  const [deleteUser, { isLoading: deleting }] = useDeleteUserMutation();
 
   const users     = (data?.data as User[]) ?? [];
   const employees = users.filter(u => u.role === "EMPLOYEE");
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this employee?")) return;
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
     try {
-      await deleteUser(id).unwrap();
-      toast.success("Employee deleted");
+      await deleteUser(confirmDelete.id).unwrap();
+      toast.success(`${confirmDelete.name} has been deleted`);
+      setConfirmDelete(null);
     } catch (err: any) {
       toast.error(err?.data?.message ?? "Failed to delete");
+      setConfirmDelete(null);
     }
   };
 
@@ -213,7 +217,7 @@ export default function EmployeesPage() {
                     className="w-8 h-8 rounded-lg bg-gray-800 border border-white/5 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
                     <FaEdit size={10} />
                   </button>
-                  <button onClick={() => handleDelete(u.id)}
+                  <button onClick={() => setConfirmDelete(u)}
                     className="w-8 h-8 rounded-lg bg-gray-800 border border-white/5 flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors">
                     <FaTrash size={10} />
                   </button>
@@ -224,8 +228,18 @@ export default function EmployeesPage() {
         )}
       </div>
 
-      {showAdd && <AddEmployeeModal onClose={() => setShowAdd(false)} />}
+      {showAdd  && <AddEmployeeModal onClose={() => setShowAdd(false)} />}
       {editing  && <EditEmployeeModal user={editing} onClose={() => setEditing(null)} />}
+
+      <ConfirmDialog
+        isOpen={!!confirmDelete}
+        title="Delete Employee"
+        message={`Are you sure you want to delete ${confirmDelete?.name}? This action cannot be undone.`}
+        confirmText={deleting ? "Deleting..." : "Delete"}
+        variant="danger"
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }
@@ -243,7 +257,7 @@ function AddEmployeeModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     try {
       await register(form).unwrap();
-      toast.success("Employee added");
+      toast.success(`${form.name} has been added successfully`);
       onClose();
     } catch (err: any) {
       toast.error(err?.data?.message ?? "Failed to add employee");
@@ -288,7 +302,6 @@ function AddEmployeeModal({ onClose }: { onClose: () => void }) {
             </select>
           </div>
 
-          {/* Work Schedule */}
           <div className="bg-blue-500/5 border border-blue-500/15 rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-2">
               <FaClock size={10} className="text-blue-400" />
@@ -339,7 +352,7 @@ function EditEmployeeModal({ user, onClose }: { user: User; onClose: () => void 
     e.preventDefault();
     try {
       await updateUser({ id: user.id, ...form }).unwrap();
-      toast.success("Employee updated");
+      toast.success(`${form.name} has been updated`);
       onClose();
     } catch (err: any) {
       toast.error(err?.data?.message ?? "Failed to update");
@@ -384,7 +397,6 @@ function EditEmployeeModal({ user, onClose }: { user: User; onClose: () => void 
             </select>
           </div>
 
-          {/* Work Schedule */}
           <div className="bg-blue-500/5 border border-blue-500/15 rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-2">
               <FaClock size={10} className="text-blue-400" />

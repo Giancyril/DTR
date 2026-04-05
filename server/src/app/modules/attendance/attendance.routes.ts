@@ -14,6 +14,7 @@ router.post("/pm-clock-out", authenticate, controller.pmClockOut);
 router.get("/",      authenticate, controller.getRecords);
 router.get("/stats", authenticate, controller.getStats);
 router.get("/dtr",   authenticate, controller.getDTRSummary);
+router.put("/:id", authenticate, requireAdmin, controller.updateRecord);
 
 // Admin only
 router.post("/manual", authenticate, requireAdmin, controller.manualEntry);

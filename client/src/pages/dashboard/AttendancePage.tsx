@@ -4,7 +4,7 @@ import {
   useDeleteAttendanceMutation, useGetUsersQuery,
 } from "../../redux/api/api";
 import { toast } from "react-toastify";
-import { FaPlus, FaTimes, FaTrash, FaFilter, FaClock, FaCalendarAlt, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FaPlus, FaTimes, FaEdit,FaTrash, FaFilter, FaClock, FaCalendarAlt, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import type { AttendanceRecord, User } from "../../types/types";
 
 const fmt = (d: string | null | undefined) => {
@@ -18,6 +18,13 @@ const fmtDate = (d: string) => {
   const datePart = d.split("T")[0]; // handles "2026-04-03T00:00:00.000Z" or "2026-04-03"
   const [y, m, day] = datePart.split("-").map(Number);
   return new Date(y, m - 1, day).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+};
+
+// Extract HH:MM in Asia/Manila from an ISO string
+const extractTime = (d: string | null | undefined): string => {
+  if (!d) return "";
+  const ph = new Date(new Date(d).toLocaleString("en-US", { timeZone: "Asia/Manila" }));
+  return `${String(ph.getHours()).padStart(2, "0")}:${String(ph.getMinutes()).padStart(2, "0")}`;
 };
 
 // ── Custom Date Picker ────────────────────────────────────────────────────────
@@ -309,6 +316,7 @@ const StatusBadge = ({ status }: { status: string }) => {
 // ── Attendance Page ───────────────────────────────────────────────────────────
 export default function AttendancePage() {
   const [showModal, setShowModal] = useState(false);
+  const [editRecord,  setEditRecord]  = useState<AttendanceRecord | null>(null);
   const [filters,   setFilters]   = useState({ dateFrom: "", dateTo: "", userId: "", status: "" });
 
   const { data, isLoading } = useGetAttendanceQuery(filters);
@@ -424,11 +432,17 @@ export default function AttendancePage() {
                         {r.hoursWorked ? `${r.hoursWorked}h` : "—"}
                       </td>
                       <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
-                      <td className="px-4 py-3">
-                        <button onClick={() => handleDelete(r.id)}
-                          className="w-7 h-7 rounded-lg bg-gray-800 border border-white/5 flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors">
-                          <FaTrash size={10} />
-                        </button>
+                       <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button onClick={() => setEditRecord(r)}
+                            className="w-7 h-7 rounded-lg bg-gray-800 border border-white/5 flex items-center justify-center text-blue-400 hover:bg-blue-500/10 transition-colors">
+                            <FaEdit size={10} />
+                          </button>
+                          <button onClick={() => handleDelete(r.id)}
+                            className="w-7 h-7 rounded-lg bg-gray-800 border border-white/5 flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors">
+                            <FaTrash size={10} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -447,6 +461,10 @@ export default function AttendancePage() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <StatusBadge status={r.status} />
+                      <button onClick={() => setEditRecord(r)}
+                        className="w-7 h-7 rounded-lg bg-gray-800 border border-white/5 flex items-center justify-center text-blue-400 hover:bg-blue-500/10 transition-colors">
+                        <FaEdit size={10} />
+                      </button>
                       <button onClick={() => handleDelete(r.id)}
                         className="w-7 h-7 rounded-lg bg-gray-800 border border-white/5 flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors">
                         <FaTrash size={10} />
@@ -499,6 +517,89 @@ export default function AttendancePage() {
       </div>
 
       {showModal && <ManualEntryModal users={users} onClose={() => setShowModal(false)} />}
+      {editRecord && <EditEntryModal record={editRecord} onClose={() => setEditRecord(null)} />}
+    </div>
+  );
+}
+
+// ── Edit Entry Modal ──────────────────────────────────────────────────────────
+function EditEntryModal({ record, onClose }: { record: AttendanceRecord; onClose: () => void }) {
+  const [manualEntry, { isLoading }] = useManualEntryMutation();
+ 
+  const datePart = record.date.split("T")[0];
+ 
+  const [form, setForm] = useState({
+    amTimeIn:  extractTime(record.amTimeIn),
+    amTimeOut: extractTime(record.amTimeOut),
+    pmTimeIn:  extractTime(record.pmTimeIn),
+    pmTimeOut: extractTime(record.pmTimeOut),
+    status:    record.status,
+    remarks:   record.remarks ?? "",
+  });
+ 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirm("Update this attendance record?")) return;
+    try {
+      await manualEntry({
+        userId:    record.userId,
+        date:      datePart,
+        status:    form.status as any,
+        remarks:   form.remarks || undefined,
+        amTimeIn:  form.amTimeIn  ? `${datePart}T${form.amTimeIn}:00+08:00`  : undefined,
+        amTimeOut: form.amTimeOut ? `${datePart}T${form.amTimeOut}:00+08:00` : undefined,
+        pmTimeIn:  form.pmTimeIn  ? `${datePart}T${form.pmTimeIn}:00+08:00`  : undefined,
+        pmTimeOut: form.pmTimeOut ? `${datePart}T${form.pmTimeOut}:00+08:00` : undefined,
+      }).unwrap();
+      toast.success("Record updated");
+      onClose();
+    } catch (err: any) { toast.error(err?.data?.message ?? "Failed to update"); }
+  };
+ 
+  const selectCls = "w-full px-3 py-2 bg-gray-800 border border-white/8 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30 appearance-none";
+  const labelCls  = "block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5";
+ 
+  const [y, m, d] = datePart.split("-").map(Number);
+  const displayDate = new Date(y, m - 1, d).toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+ 
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-gray-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl max-h-[92vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 shrink-0">
+          <div>
+            <h3 className="text-sm font-bold text-white">Edit Record</h3>
+            <p className="text-gray-500 text-xs mt-0.5">{record.user?.name} · {displayDate}</p>
+          </div>
+          <button onClick={onClose} className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"><FaTimes size={12} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto">
+          <div>
+            <label className={labelCls}>Status</label>
+            <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as any }))} className={selectCls}>
+              {["PRESENT","ABSENT","LATE","HALF_DAY"].map(s => <option key={s} value={s}>{s.replace("_"," ")}</option>)}
+            </select>
+          </div>
+          <div className="bg-blue-500/5 border border-blue-500/15 rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-400" /><p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Morning Session</p></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className={labelCls}>Time In</label><TimePicker value={form.amTimeIn} onChange={v => setForm(f => ({ ...f, amTimeIn: v }))} accentColor="blue" /></div>
+              <div><label className={labelCls}>Time Out</label><TimePicker value={form.amTimeOut} onChange={v => setForm(f => ({ ...f, amTimeOut: v }))} accentColor="blue" /></div>
+            </div>
+          </div>
+          <div className="bg-indigo-500/5 border border-indigo-500/15 rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-indigo-400" /><p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Afternoon Session</p></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className={labelCls}>Time In</label><TimePicker value={form.pmTimeIn} onChange={v => setForm(f => ({ ...f, pmTimeIn: v }))} accentColor="indigo" /></div>
+              <div><label className={labelCls}>Time Out</label><TimePicker value={form.pmTimeOut} onChange={v => setForm(f => ({ ...f, pmTimeOut: v }))} accentColor="indigo" /></div>
+            </div>
+          </div>
+          <div><label className={labelCls}>Remarks</label><input value={form.remarks} onChange={e => setForm(f => ({ ...f, remarks: e.target.value }))} placeholder="Optional" className={selectCls + " placeholder-gray-600"} /></div>
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 border border-white/5 text-gray-400 text-xs font-medium rounded-xl transition-colors">Cancel</button>
+            <button type="submit" disabled={isLoading} className="flex-1 py-2.5 bg-blue-500 hover:bg-blue-400 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all">{isLoading ? "Saving..." : "Save Changes"}</button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

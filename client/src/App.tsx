@@ -1,5 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { isAuthenticated, isAdmin } from "./auth/auth";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 import LoginPage       from "./pages/LoginPage";
 import DashboardLayout from "./pages/dashboard/DashboardLayout";
 import OverviewPage    from "./pages/dashboard/OverviewPage";
@@ -19,30 +22,51 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+    <>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-        <Route
-          element={
-            <ProtectedRoute>
-              <DashboardLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/dashboard"     element={<OverviewPage />} />
-          <Route path="/my-attendance" element={<MyAttendancePage />} />
-          <Route path="/dtr"           element={<DTRPage />} />
+          <Route
+            element={
+              <ProtectedRoute>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/dashboard"     element={<OverviewPage />} />
+            <Route path="/my-attendance" element={<MyAttendancePage />} />
+            <Route path="/dtr"           element={<DTRPage />} />
 
-          {/* Admin only */}
-          <Route path="/attendance" element={<AdminRoute><AttendancePage /></AdminRoute>} />
-          <Route path="/employees"  element={<AdminRoute><EmployeesPage /></AdminRoute>} />
-          <Route path="/settings"   element={<SettingsPage />} />
-        </Route>
+            {/* Admin only */}
+            <Route path="/attendance" element={<AdminRoute><AttendancePage /></AdminRoute>} />
+            <Route path="/employees"  element={<AdminRoute><EmployeesPage /></AdminRoute>} />
+            <Route path="/settings"   element={<SettingsPage />} />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
-    </BrowserRouter>
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </BrowserRouter>
+
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        pauseOnHover
+        draggable
+        theme="dark"
+        style={{
+          position: "fixed",
+          top: "1rem",
+          right: "1rem",
+          left: "auto",
+          zIndex: 99999,
+          width: "320px",
+        }}
+      />
+    </>
   );
 }

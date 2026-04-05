@@ -193,6 +193,32 @@ export const getRecords = async (params: {
   return { records, total, page, limit };
 };
 
+export const updateRecord = async (id: string, body: {
+  amTimeIn?:  string;
+  amTimeOut?: string;
+  pmTimeIn?:  string;
+  pmTimeOut?: string;
+  status:     "PRESENT" | "ABSENT" | "LATE" | "HALF_DAY";
+  remarks?:   string;
+}) => {
+  const amTimeIn  = body.amTimeIn  ? new Date(body.amTimeIn)  : null;
+  const amTimeOut = body.amTimeOut ? new Date(body.amTimeOut) : null;
+  const pmTimeIn  = body.pmTimeIn  ? new Date(body.pmTimeIn)  : null;
+  const pmTimeOut = body.pmTimeOut ? new Date(body.pmTimeOut) : null;
+
+  const hoursWorked = calcTotalHours(amTimeIn, amTimeOut, pmTimeIn, pmTimeOut);
+
+  return prisma.attendanceRecord.update({
+    where: { id },
+    data: {
+      amTimeIn, amTimeOut, pmTimeIn, pmTimeOut,
+      hoursWorked: hoursWorked > 0 ? hoursWorked : null,
+      status:   body.status,
+      remarks:  body.remarks ?? null,
+    },
+  });
+};
+
 // ── DTR Summary ───────────────────────────────────────────────────────────────
 export const getDTRSummary = async (params: {
   userId:   string;
