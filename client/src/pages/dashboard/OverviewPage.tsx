@@ -471,31 +471,6 @@ export default function OverviewPage() {
         </div>
       )}
 
-      {/* Admin heatmap with employee dropdown */}
-      {admin && <AdminHeatmapPanel />}
-
-      {/* Employee heatmap */}
-      {!admin && (
-        <div className="bg-gray-900 border border-white/5 rounded-2xl p-4 sm:p-5 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-            <h2 className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest truncate">My Attendance Heatmap</h2>
-            <div className="flex items-center justify-end w-full sm:w-auto">
-              <DatePicker month={selectedMonth} setMonth={setSelectedMonth} year={selectedYear} setYear={setSelectedYear} />
-            </div>
-          </div>
-          <HeatmapCalendar
-            records={historyRecords}
-            currentStreak={currentStreak}
-            bestStreak={bestStreak}
-            showStreaks={true}
-            selectedMonth={selectedMonth}
-            setSelectedMonth={setSelectedMonth}
-            selectedYear={selectedYear}
-            setSelectedYear={setSelectedYear}
-          />
-        </div>
-      )}
-
       {/* Today's Attendance */}
       <div className="bg-gray-900 border border-white/5 rounded-2xl p-5 space-y-5">
         <div className="flex items-center justify-between flex-wrap gap-2">
@@ -599,6 +574,33 @@ export default function OverviewPage() {
           <p className="text-gray-500 text-xs">{todayRecord.remarks}</p>
         )}
       </div>
+
+      {/* Admin heatmap with employee dropdown */}
+      {admin && <AdminHeatmapPanel />}
+
+      {/* Employee heatmap */}
+      {!admin && (
+        <div className="bg-gray-900 border border-white/5 rounded-2xl p-4 sm:p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+            <h2 className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest truncate">My Attendance Heatmap</h2>
+            <div className="flex items-center justify-end w-full sm:w-auto">
+              <DatePicker month={selectedMonth} setMonth={setSelectedMonth} year={selectedYear} setYear={setSelectedYear} />
+            </div>
+          </div>
+          <HeatmapCalendar
+            records={historyRecords}
+            currentStreak={currentStreak}
+            bestStreak={bestStreak}
+            showStreaks={true}
+            selectedMonth={selectedMonth}
+            setSelectedMonth={setSelectedMonth}
+            selectedYear={selectedYear}
+            setSelectedYear={setSelectedYear}
+          />
+        </div>
+      )}
+
+      
     </div>
   );
 }

@@ -142,14 +142,9 @@ function SidebarContent({ nav, onNavigate }: { nav: typeof adminNav; onNavigate:
   return (
     <div className="flex flex-col h-full">
       <div className="px-5 border-b border-white/5 shrink-0 h-14 flex items-center">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-600/15 border border-blue-500/20 flex items-center justify-center">
-            <FaClock size={13} className="text-blue-400" />
-          </div>
-          <div>
-            <p className="text-white text-sm font-bold tracking-wide">DTR System</p>
-            <p className="text-gray-500 text-[9px] uppercase tracking-widest">Daily Time Record</p>
-          </div>
+        <div>
+          <p className="text-white text-sm font-bold tracking-wide">DTR System</p>
+          <p className="text-gray-400 text-[9px] uppercase tracking-widest">Daily Time Record</p>
         </div>
       </div>
 

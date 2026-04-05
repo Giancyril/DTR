@@ -3,13 +3,13 @@ import { isAuthenticated, isAdmin } from "./auth/auth";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-import LoginPage       from "./pages/LoginPage";
-import DashboardLayout from "./pages/dashboard/DashboardLayout";
-import OverviewPage    from "./pages/dashboard/OverviewPage";
-import AttendancePage  from "./pages/dashboard/AttendancePage";
-import DTRPage         from "./pages/dashboard/DTRPage";
-import EmployeesPage   from "./pages/dashboard/EmployeesPage";
-import SettingsPage    from "./pages/dashboard/SettingsPage";
+import LoginPage        from "./pages/LoginPage";
+import DashboardLayout  from "./pages/dashboard/DashboardLayout";
+import OverviewPage     from "./pages/dashboard/OverviewPage";
+import AttendancePage   from "./pages/dashboard/AttendancePage";
+import DTRPage          from "./pages/dashboard/DTRPage";
+import EmployeesPage    from "./pages/dashboard/EmployeesPage";
+import SettingsPage     from "./pages/dashboard/SettingsPage";
 import MyAttendancePage from "./pages/dashboard/MyAttendancePage";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -23,7 +23,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 export default function App() {
   return (
     <>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -69,4 +69,4 @@ export default function App() {
       />
     </>
   );
-}
+}6

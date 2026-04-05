@@ -18,12 +18,11 @@ export default function SettingsPage() {
     currentPassword: "", newPassword: "", confirmPassword: "",
   });
 
-  // ── Confirm dialog state ──────────────────────────────────────────────────
   const [confirmState, setConfirmState] = useState<{
-    isOpen:   boolean;
-    title:    string;
-    message:  string;
-    variant:  "danger" | "warning" | "info";
+    isOpen:    boolean;
+    title:     string;
+    message:   string;
+    variant:   "danger" | "warning" | "info";
     onConfirm: () => void;
   }>({ isOpen: false, title: "", message: "", variant: "info", onConfirm: () => {} });
 
@@ -32,44 +31,45 @@ export default function SettingsPage() {
   const closeConfirm = () =>
     setConfirmState(s => ({ ...s, isOpen: false }));
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleNameSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    openConfirm({
-      title:   "Update Display Name",
-      message: `Change your name to "${nameForm.name}"?`,
-      variant: "info",
-      onConfirm: async () => {
+  e.preventDefault();
+  openConfirm({
+    title:   "Update Display Name",
+    message: `Change your name to "${nameForm.name}"?`,
+    variant: "info",
+    onConfirm: async () => {
+      try {
+        const res: any = await updateName({ name: nameForm.name }).unwrap();
+        if (res?.data?.token) setToken(res.data.token); // ← res.data.token
         closeConfirm();
-        try {
-          const res: any = await updateName({ name: nameForm.name }).unwrap();
-          if (res?.token) setToken(res.token);
-          toast.success("Name updated successfully");
-        } catch (err: any) {
-          toast.error(err?.data?.message ?? "Failed to update name");
-        }
-      },
-    });
-  };
+        toast.success("Name updated successfully");
+      } catch (err: any) {
+        closeConfirm();
+        toast.error(err?.data?.message ?? "Failed to update name");
+      }
+    },
+  });
+};
 
-  const handleEmailSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    openConfirm({
-      title:   "Update Email Address",
-      message: `Change your email to "${emailForm.email}"?`,
-      variant: "info",
-      onConfirm: async () => {
+const handleEmailSubmit = (e: React.FormEvent) => {
+  e.preventDefault();
+  openConfirm({
+    title:   "Update Email Address",
+    message: `Change your email to "${emailForm.email}"?`,
+    variant: "info",
+    onConfirm: async () => {
+      try {
+        const res: any = await updateEmail({ email: emailForm.email }).unwrap();
+        if (res?.data?.token) setToken(res.data.token); // ← res.data.token
         closeConfirm();
-        try {
-          const res: any = await updateEmail({ email: emailForm.email }).unwrap();
-          if (res?.token) setToken(res.token);
-          toast.success("Email updated successfully");
-        } catch (err: any) {
-          toast.error(err?.data?.message ?? "Failed to update email");
-        }
-      },
-    });
-  };
+        toast.success("Email updated successfully");
+      } catch (err: any) {
+        closeConfirm();
+        toast.error(err?.data?.message ?? "Failed to update email");
+      }
+    },
+  });
+};
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,13 +101,13 @@ export default function SettingsPage() {
   const labelCls = "block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5";
 
   return (
-    <div className="space-y-6 max-w-lg">
+    <div className="space-y-6">
       <div>
         <h1 className="text-white text-xl font-bold">Settings</h1>
         <p className="text-gray-500 text-xs mt-0.5">Manage your account</p>
       </div>
 
-      {/* Profile info */}
+      {/* Profile info — full width */}
       <div className="bg-gray-900 border border-white/5 rounded-2xl p-5">
         <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Account</h2>
         <div className="flex items-center gap-4">
@@ -124,75 +124,90 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Edit name */}
-      <div className="bg-gray-900 border border-white/5 rounded-2xl overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-white/5 flex items-center gap-2">
-          <FaUser size={10} className="text-gray-500" />
-          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Edit Name</h2>
-        </div>
-        <form onSubmit={handleNameSubmit} className="p-5 space-y-3.5">
-          <div>
-            <label className={labelCls}>Full Name</label>
-            <div className="relative">
-              <FaUser size={10} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-              <input type="text" required value={nameForm.name} onChange={e => setNameForm({ name: e.target.value })} className={inputCls + " pl-9"} />
-            </div>
+      {/* Two-column grid on desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {/* Edit name */}
+        <div className="bg-gray-900 border border-white/5 rounded-2xl overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-white/5 flex items-center gap-2">
+            <FaUser size={10} className="text-gray-500" />
+            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Edit Name</h2>
           </div>
-          <button type="submit" disabled={updatingName}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all mt-1">
-            {updatingName ? "Saving..." : "Save Name"}
-          </button>
-        </form>
-      </div>
-
-      {/* Edit email */}
-      <div className="bg-gray-900 border border-white/5 rounded-2xl overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-white/5 flex items-center gap-2">
-          <FaEnvelope size={10} className="text-gray-500" />
-          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Edit Email</h2>
-        </div>
-        <form onSubmit={handleEmailSubmit} className="p-5 space-y-3.5">
-          <div>
-            <label className={labelCls}>Email Address</label>
-            <div className="relative">
-              <FaEnvelope size={10} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-              <input type="email" required value={emailForm.email} onChange={e => setEmailForm({ email: e.target.value })} className={inputCls + " pl-9"} />
+          <form onSubmit={handleNameSubmit} className="p-5 space-y-3.5">
+            <div>
+              <label className={labelCls}>Full Name</label>
+              <div className="relative">
+                <FaUser size={10} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                <input type="text" required autoComplete="name"
+                  value={nameForm.name}
+                  onChange={e => setNameForm({ name: e.target.value })}
+                  className={inputCls + " pl-9"} />
+              </div>
             </div>
+            <button type="submit" disabled={updatingName}
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all mt-1">
+              {updatingName ? "Saving..." : "Save Name"}
+            </button>
+          </form>
+        </div>
+
+        {/* Edit email */}
+        <div className="bg-gray-900 border border-white/5 rounded-2xl overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-white/5 flex items-center gap-2">
+            <FaEnvelope size={10} className="text-gray-500" />
+            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Edit Email</h2>
           </div>
-          <button type="submit" disabled={updatingEmail}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all mt-1">
-            {updatingEmail ? "Saving..." : "Save Email"}
-          </button>
-        </form>
-      </div>
-
-      {/* Change password */}
-      <div className="bg-gray-900 border border-white/5 rounded-2xl overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-white/5 flex items-center gap-2">
-          <FaLock size={10} className="text-gray-500" />
-          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Change Password</h2>
-        </div>
-        <form onSubmit={handlePasswordSubmit} className="p-5 space-y-3.5">
-          {[
-            { label: "Current Password", key: "currentPassword" },
-            { label: "New Password",     key: "newPassword"     },
-            { label: "Confirm Password", key: "confirmPassword" },
-          ].map(({ label, key }) => (
-            <div key={key}>
-              <label className={labelCls}>{label}</label>
-              <input type="password" required value={(passwordForm as any)[key]}
-                onChange={e => setPasswordForm(f => ({ ...f, [key]: e.target.value }))}
-                className={inputCls} />
+          <form onSubmit={handleEmailSubmit} className="p-5 space-y-3.5">
+            <div>
+              <label className={labelCls}>Email Address</label>
+              <div className="relative">
+                <FaEnvelope size={10} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                <input type="email" required autoComplete="email"
+                  value={emailForm.email}
+                  onChange={e => setEmailForm({ email: e.target.value })}
+                  className={inputCls + " pl-9"} />
+              </div>
             </div>
-          ))}
-          <button type="submit" disabled={changingPassword}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all mt-1">
-            {changingPassword ? "Changing..." : "Change Password"}
-          </button>
-        </form>
+            <button type="submit" disabled={updatingEmail}
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all mt-1">
+              {updatingEmail ? "Saving..." : "Save Email"}
+            </button>
+          </form>
+        </div>
+
+        {/* Change password — full width on desktop */}
+        <div className="bg-gray-900 border border-white/5 rounded-2xl overflow-hidden lg:col-span-2">
+          <div className="px-5 py-3.5 border-b border-white/5 flex items-center gap-2">
+            <FaLock size={10} className="text-gray-500" />
+            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Change Password</h2>
+          </div>
+          <form onSubmit={handlePasswordSubmit} className="p-5">
+            {/* Hidden username for accessibility */}
+            <input type="text" autoComplete="username" value={user?.email ?? ""} readOnly className="hidden" />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
+              {[
+                { label: "Current Password", key: "currentPassword", autoComplete: "current-password" },
+                { label: "New Password",     key: "newPassword",     autoComplete: "new-password"     },
+                { label: "Confirm Password", key: "confirmPassword", autoComplete: "new-password"     },
+              ].map(({ label, key, autoComplete }) => (
+                <div key={key}>
+                  <label className={labelCls}>{label}</label>
+                  <input type="password" required autoComplete={autoComplete}
+                    value={(passwordForm as any)[key]}
+                    onChange={e => setPasswordForm(f => ({ ...f, [key]: e.target.value }))}
+                    className={inputCls} />
+                </div>
+              ))}
+            </div>
+            <button type="submit" disabled={changingPassword}
+              className="w-full mt-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-all">
+              {changingPassword ? "Changing..." : "Change Password"}
+            </button>
+          </form>
+        </div>
+
       </div>
 
-      {/* Confirm Dialog */}
       <ConfirmDialog
         isOpen={confirmState.isOpen}
         title={confirmState.title}
