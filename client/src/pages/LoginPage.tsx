@@ -41,28 +41,16 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md relative z-10">
 
-        {/* Top badge */}
-        <div className="flex justify-center mb-8">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full">
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-            <span className="text-blue-400 text-[11px] font-bold uppercase tracking-widest">Attendance System</span>
-          </div>
-        </div>
 
-        {/* Title */}
-        <div className="text-center mb-6">
-          <h1 className="text-white text-3xl font-black tracking-tight">DTR System</h1>
-          <p className="text-gray-500 text-sm mt-1.5 font-medium">Daily Time Record Management</p>
-        </div>
 
         {/* Card */}
         <div className="relative">
           <div className="absolute -inset-px rounded-3xl bg-gradient-to-b from-white/10 to-white/0 pointer-events-none" />
-          <div className="bg-gray-900/80 backdrop-blur-xl border border-white/8 rounded-3xl p-8 shadow-2xl">
+          <div className="bg-gray-900/80 backdrop-blur-xl rounded-3xl p-8 shadow-2xl">
 
-            <div className="mb-8 text-center">
-              <h2 className="text-white text-2xl font-black tracking-tight">Welcome back</h2>
-              <p className="text-gray-500 text-xs mt-1.5">Sign in to access your dashboard</p>
+            <div className="mb-14 text-center">
+              <h2 className="text-white text-2xl font-black tracking-tight">DTR System</h2>
+              <p className="text-gray-500 text-sm mt-1.5 font-medium">Daily Time Record Management</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -75,8 +63,8 @@ export default function LoginPage() {
                 <div className="relative group">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-500 group-focus-within:text-blue-400 transition-colors">
-                      <rect x="2" y="4" width="20" height="16" rx="2"/>
-                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                      <rect x="2" y="4" width="20" height="16" rx="2" />
+                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                     </svg>
                   </div>
                   <input
@@ -84,8 +72,8 @@ export default function LoginPage() {
                     required
                     value={form.email}
                     onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                    placeholder="you@company.com"
-                    className="w-full pl-10 pr-4 py-3 bg-gray-800/60 border border-white/8 rounded-2xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all"
+                    placeholder=" "
+                    className="w-full pl-10 pr-4 py-3 bg-gray-800/60 rounded-2xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all"
                   />
                 </div>
               </div>
@@ -98,8 +86,8 @@ export default function LoginPage() {
                 <div className="relative group">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-500 group-focus-within:text-blue-400 transition-colors">
-                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                     </svg>
                   </div>
                   <input
@@ -108,7 +96,7 @@ export default function LoginPage() {
                     value={form.password}
                     onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                     placeholder="••••••••••"
-                    className="w-full pl-10 pr-12 py-3 bg-gray-800/60 border border-white/8 rounded-2xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all"
+                    className="w-full pl-10 pr-12 py-3 bg-gray-800/60 rounded-2xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all"
                   />
                   <button
                     type="button"
@@ -121,50 +109,33 @@ export default function LoginPage() {
               </div>
 
               {/* Submit */}
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="relative w-full py-3 rounded-2xl font-bold text-sm text-white overflow-hidden transition-all disabled:opacity-60 group mt-2"
-                style={{ background: "linear-gradient(135deg, #2563eb, #1d4ed8)" }}
-              >
-                <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors" />
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)" }} />
-                <span className="relative">
-                  {isLoading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3"/>
-                        <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
-                      </svg>
-                      Signing in...
-                    </span>
-                  ) : "Sign In"}
-                </span>
-              </button>
+              <div className="pt-6">
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="relative w-full py-3 rounded-2xl font-bold text-sm text-white overflow-hidden transition-all disabled:opacity-60 group"
+                  style={{ background: "linear-gradient(135deg, #2563eb, #1d4ed8)" }}
+                >
+                  <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors" />
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)" }} />
+                  <span className="relative">
+                    {isLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3" />
+                          <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                        </svg>
+                        Signing in...
+                      </span>
+                    ) : "Sign In"}
+                  </span>
+                </button>
+              </div>
             </form>
-
-            {/* Divider */}
-            <div className="flex items-center gap-3 mt-6">
-              <div className="flex-1 h-px bg-white/5" />
-              <span className="text-gray-600 text-[10px] font-medium uppercase tracking-widest">Secure Login</span>
-              <div className="flex-1 h-px bg-white/5" />
-            </div>
-
-            {/* Security note */}
-            <div className="flex items-center justify-center gap-2 mt-4">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-600">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              </svg>
-              <p className="text-gray-600 text-[10px]">Protected with JWT authentication</p>
-            </div>
           </div>
         </div>
 
-        {/* Footer */}
-        <p className="text-center text-gray-700 text-[10px] mt-6">
-          © {new Date().getFullYear()} DTR System · All rights reserved
-        </p>
       </div>
     </div>
   );
