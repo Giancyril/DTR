@@ -6,6 +6,7 @@ import {
 import { toast } from "react-toastify";
 import { FaPlus, FaTimes, FaEdit,FaTrash, FaFilter, FaClock, FaCalendarAlt, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import type { AttendanceRecord, User } from "../../types/types";
+import ConfirmDialog from "../../components/ConfirmDialog";
 
 const fmt = (d: string | null | undefined) => {
   if (!d) return "—";
@@ -321,16 +322,18 @@ export default function AttendancePage() {
 
   const { data, isLoading } = useGetAttendanceQuery(filters);
   const { data: usersData } = useGetUsersQuery(undefined);
-  const [deleteRecord]      = useDeleteAttendanceMutation();
+  const [deleteRecordId, setDeleteRecordId] = useState<string | null>(null);
+  const [deleteRecord, { isLoading: isDeleting }] = useDeleteAttendanceMutation();
 
   const records = (data?.records as AttendanceRecord[]) ?? [];
   const users   = (usersData?.data as User[]) ?? [];
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this record?")) return;
+  const confirmDelete = async () => {
+    if (!deleteRecordId) return;
     try {
-      await deleteRecord(id).unwrap();
+      await deleteRecord(deleteRecordId).unwrap();
       toast.success("Record deleted");
+      setDeleteRecordId(null);
     } catch (err: any) {
       toast.error(err?.data?.message ?? "Failed to delete");
     }
@@ -438,7 +441,7 @@ export default function AttendancePage() {
                             className="w-7 h-7 rounded-lg bg-gray-800 border border-white/5 flex items-center justify-center text-blue-400 hover:bg-blue-500/10 transition-colors">
                             <FaEdit size={10} />
                           </button>
-                          <button onClick={() => handleDelete(r.id)}
+                          <button onClick={() => setDeleteRecordId(r.id)}
                             className="w-7 h-7 rounded-lg bg-gray-800 border border-white/5 flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors">
                             <FaTrash size={10} />
                           </button>
@@ -465,7 +468,7 @@ export default function AttendancePage() {
                         className="w-7 h-7 rounded-lg bg-gray-800 border border-white/5 flex items-center justify-center text-blue-400 hover:bg-blue-500/10 transition-colors">
                         <FaEdit size={10} />
                       </button>
-                      <button onClick={() => handleDelete(r.id)}
+                      <button onClick={() => setDeleteRecordId(r.id)}
                         className="w-7 h-7 rounded-lg bg-gray-800 border border-white/5 flex items-center justify-center text-red-400 hover:bg-red-500/10 transition-colors">
                         <FaTrash size={10} />
                       </button>
@@ -518,6 +521,16 @@ export default function AttendancePage() {
 
       {showModal && <ManualEntryModal users={users} onClose={() => setShowModal(false)} />}
       {editRecord && <EditEntryModal record={editRecord} onClose={() => setEditRecord(null)} />}
+      
+      <ConfirmDialog
+        isOpen={!!deleteRecordId}
+        title="Delete Record"
+        message="Are you sure you want to delete this attendance record? This action cannot be undone."
+        confirmText={isDeleting ? "Deleting..." : "Delete"}
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteRecordId(null)}
+      />
     </div>
   );
 }
@@ -546,10 +559,10 @@ function EditEntryModal({ record, onClose }: { record: AttendanceRecord; onClose
         date:      datePart,
         status:    form.status as any,
         remarks:   form.remarks || undefined,
-        amTimeIn:  form.amTimeIn  ? `${datePart}T${form.amTimeIn}:00+08:00`  : undefined,
-        amTimeOut: form.amTimeOut ? `${datePart}T${form.amTimeOut}:00+08:00` : undefined,
-        pmTimeIn:  form.pmTimeIn  ? `${datePart}T${form.pmTimeIn}:00+08:00`  : undefined,
-        pmTimeOut: form.pmTimeOut ? `${datePart}T${form.pmTimeOut}:00+08:00` : undefined,
+        amTimeIn:  form.amTimeIn  ? `${datePart}T${form.amTimeIn}:00+08:00`  : null,
+        amTimeOut: form.amTimeOut ? `${datePart}T${form.amTimeOut}:00+08:00` : null,
+        pmTimeIn:  form.pmTimeIn  ? `${datePart}T${form.pmTimeIn}:00+08:00`  : null,
+        pmTimeOut: form.pmTimeOut ? `${datePart}T${form.pmTimeOut}:00+08:00` : null,
       }).unwrap();
       toast.success("Record updated");
       onClose();
@@ -623,10 +636,10 @@ function ManualEntryModal({ users, onClose }: { users: User[]; onClose: () => vo
         date:      form.date,
         status:    form.status,
         remarks:   form.remarks || undefined,
-        amTimeIn:  form.amTimeIn  ? `${form.date}T${form.amTimeIn}:00+08:00`  : undefined,
-        amTimeOut: form.amTimeOut ? `${form.date}T${form.amTimeOut}:00+08:00` : undefined,
-        pmTimeIn:  form.pmTimeIn  ? `${form.date}T${form.pmTimeIn}:00+08:00`  : undefined,
-        pmTimeOut: form.pmTimeOut ? `${form.date}T${form.pmTimeOut}:00+08:00` : undefined,
+        amTimeIn:  form.amTimeIn  ? `${form.date}T${form.amTimeIn}:00+08:00`  : null,
+        amTimeOut: form.amTimeOut ? `${form.date}T${form.amTimeOut}:00+08:00` : null,
+        pmTimeIn:  form.pmTimeIn  ? `${form.date}T${form.pmTimeIn}:00+08:00`  : null,
+        pmTimeOut: form.pmTimeOut ? `${form.date}T${form.pmTimeOut}:00+08:00` : null,
       }).unwrap();
       toast.success("Attendance recorded");
       onClose();

@@ -123,18 +123,18 @@ export const pmClockOut = async (userId: string) => {
 export const manualEntry = async (body: {
   userId:     string;
   date:       string;
-  amTimeIn?:  string;
-  amTimeOut?: string;
-  pmTimeIn?:  string;
-  pmTimeOut?: string;
+  amTimeIn?:  string | null;
+  amTimeOut?: string | null;
+  pmTimeIn?:  string | null;
+  pmTimeOut?: string | null;
   status:     "PRESENT" | "ABSENT" | "LATE" | "HALF_DAY";
-  remarks?:   string;
+  remarks?:   string | null;
 }) => {
   const date      = parseDateString(body.date);
-  const amTimeIn  = body.amTimeIn  ? new Date(body.amTimeIn)  : undefined;
-  const amTimeOut = body.amTimeOut ? new Date(body.amTimeOut) : undefined;
-  const pmTimeIn  = body.pmTimeIn  ? new Date(body.pmTimeIn)  : undefined;
-  const pmTimeOut = body.pmTimeOut ? new Date(body.pmTimeOut) : undefined;
+  const amTimeIn  = body.amTimeIn  ? new Date(body.amTimeIn)  : null;
+  const amTimeOut = body.amTimeOut ? new Date(body.amTimeOut) : null;
+  const pmTimeIn  = body.pmTimeIn  ? new Date(body.pmTimeIn)  : null;
+  const pmTimeOut = body.pmTimeOut ? new Date(body.pmTimeOut) : null;
 
   const hoursWorked = calcTotalHours(amTimeIn, amTimeOut, pmTimeIn, pmTimeOut);
 
